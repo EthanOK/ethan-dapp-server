@@ -1,0 +1,18 @@
+{
+  "bunVersion": "1.x",
+  "buildCommand": "bun run build",
+  "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/swagger",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/swagger",
+      "destination": "/swagger.html"
+    }
+  ]
+}
