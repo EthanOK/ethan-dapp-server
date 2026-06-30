@@ -15,6 +15,7 @@ bun dev
 | http://localhost:3000/                 | Home (React SPA)      |
 | http://localhost:3000/swagger          | Swagger UI            |
 | http://localhost:3000/api/openapi.json | OpenAPI spec          |
+| http://localhost:3000/api/health       | Health check          |
 | http://localhost:3000/api/hello        | Example API           |
 | http://localhost:3000/api/login        | SIWE wallet login     |
 | http://localhost:3000/api/me           | Current session (JWT) |

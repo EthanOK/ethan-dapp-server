@@ -17,6 +17,17 @@ async function fetchApp(path: string, init?: RequestInit): Promise<Response> {
 }
 
 describe("API availability", () => {
+  test("GET /api/health", async () => {
+    const res = await fetchApp("/api/health");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.status).toBe("ok");
+    expect(typeof body.uptime).toBe("number");
+    expect(body.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isNaN(Date.parse(body.timestamp))).toBe(false);
+  });
+
   test("GET /api/hello", async () => {
     const res = await fetchApp("/api/hello");
     expect(res.status).toBe(200);
