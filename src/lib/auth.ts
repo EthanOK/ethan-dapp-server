@@ -1,5 +1,5 @@
-import { SiweMessage } from "siwe";
-import jwt, { type SignOptions } from "jsonwebtoken";
+import { type SignOptions } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { JWT_EXPIRES, JWT_SECRET } from "../config";
 
 export type LoginPayload = {
@@ -12,22 +12,40 @@ export type SessionClaims = {
   nonce: string;
 };
 
+function parseSiweFields(
+  message: string,
+): { address: string; nonce: string } | null {
+  const lines = message.split("\n");
+  const address = lines[1]?.trim();
+  const nonceLine = lines.find((line) => line.startsWith("Nonce: "));
+  const nonce = nonceLine?.slice("Nonce: ".length).trim();
+
+  if (!address?.match(/^0x[a-fA-F0-9]{40}$/) || !nonce) {
+    return null;
+  }
+
+  return { address, nonce };
+}
+
 export async function verifySiweLogin(
   payload: LoginPayload,
 ): Promise<SessionClaims | null> {
   try {
-    const siweMessage = new SiweMessage(payload.message);
-    const { success, data } = await siweMessage.verify({
-      signature: payload.signature,
-    });
+    const fields = parseSiweFields(payload.message);
+    if (!fields) {
+      return null;
+    }
 
-    if (!success) {
+    const { verifyMessage } = await import("ethers");
+    const recovered = verifyMessage(payload.message, payload.signature);
+
+    if (recovered.toLowerCase() !== fields.address.toLowerCase()) {
       return null;
     }
 
     return {
-      address: data.address,
-      nonce: data.nonce,
+      address: fields.address,
+      nonce: fields.nonce,
     };
   } catch {
     return null;

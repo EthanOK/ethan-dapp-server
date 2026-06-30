@@ -5,6 +5,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
 import { registerHelloRoutes } from "./routes/hello";
+import { patchOpenApiLoginExample, registerLoginRoutes } from "./routes/login";
 
 const root = join(import.meta.dir, "..");
 const builtSwaggerPath = join(root, "public", "swagger.html");
@@ -40,20 +41,17 @@ export const app = new OpenAPIHono({
 app.use("/api/*", cors());
 
 registerHelloRoutes(app);
+registerLoginRoutes(app);
 
-app.get("/api/openapi.json", (c) =>
-  c.json(
-    app.getOpenAPIDocument({
-      openapi: "3.0.3",
-      info: openApiInfo,
-      servers: [{ url: requestOrigin(c) }],
-    }),
-  ),
-);
-
-app.post("/api/login", async (c) => {
-  const { handleLogin } = await import("./routes/login");
-  return handleLogin(c);
+app.get("/api/openapi.json", async (c) => {
+  const origin = requestOrigin(c);
+  const doc = app.getOpenAPIDocument({
+    openapi: "3.0.3",
+    info: openApiInfo,
+    servers: [{ url: origin }],
+  });
+  await patchOpenApiLoginExample(doc, origin);
+  return c.json(doc);
 });
 
 app.get("/", (c) => c.redirect("/swagger"));

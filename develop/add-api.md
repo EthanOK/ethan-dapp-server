@@ -63,10 +63,10 @@ export function registerUserRoutes(app: OpenAPIHono) {
 ```ts
 import { registerUserRoutes } from "./routes/user";
 
-registerUserRoutes(api);
+registerUserRoutes(app);
 ```
 
-Refresh `/swagger` to see the new endpoint. No need to hand-write `openapi.json` or register routes in `index.ts`.
+Refresh `/swagger` to see the new endpoint. No need to hand-write `openapi.json` or change `src/index.ts`.
 
 ## File responsibilities
 
@@ -74,11 +74,12 @@ Refresh `/swagger` to see the new endpoint. No need to hand-write `openapi.json`
 |------|------|
 | `src/routes/*.ts` | Schema + `createRoute` + handler (`app.openapi`) |
 | `src/server.ts` | Hono app: routes, OpenAPI, static files |
-| `src/index.ts` | Bun entry — `export default { port, fetch: app.fetch }` |
+| `src/index.ts` | Bun entry — `Bun.serve({ port, fetch: app.fetch })` |
 
 ## Conventions
 
 - Path params: use OpenAPI style `/api/foo/{id}` in `createRoute` (Hono converts internally)
-- `tags` group endpoints in Swagger (e.g. `"Users"`)
-- `c.req.valid("json" | "param" | "query")` returns validated, typed input
+- `tags` group endpoints in Swagger (e.g. `"Users"`, `"Auth"`)
+- `c.req.valid("json" | "param" | "query")` returns validated, typed input — define the handler inline in `app.openapi(route, async (c) => { ... })` so types infer correctly
 - For auth, add `security` on `createRoute` and register `securitySchemes` via `app.openAPIRegistry`
+- See `src/routes/login.ts` for SIWE login with multiple response schemas (200 / 401 / 500)
