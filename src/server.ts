@@ -1,9 +1,9 @@
 import { serveStatic } from "hono/bun";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { registerHelloRoutes } from "./routes/hello";
-import { registerLoginRoutes } from "./routes/login";
 
 const isProd = process.env.NODE_ENV === "production";
+const onVercel = !!process.env.VERCEL;
 
 const openApiInfo = {
   title: "Ethan DApp API",
@@ -21,7 +21,6 @@ export const app = new OpenAPIHono({
 });
 
 registerHelloRoutes(app);
-registerLoginRoutes(app);
 
 app.get("/api/openapi.json", (c) =>
   c.json(
@@ -33,18 +32,28 @@ app.get("/api/openapi.json", (c) =>
   ),
 );
 
+app.post("/api/login", async (c) => {
+  const { handleLogin } = await import("./routes/login");
+  return handleLogin(c);
+});
+
 app.get("/", (c) => c.redirect("/swagger"));
 
-app.get(
-  "/swagger",
-  serveStatic({
-    path: isProd ? "./dist/swagger.html" : "./src/docs.html",
-  }),
-);
-
-app.get(
-  "/*",
-  serveStatic({
-    path: "./dist/index.html",
-  }),
-);
+if (onVercel) {
+  // Vercel CDN serves public/swagger.html; server only redirects.
+  app.get("/swagger", (c) => c.redirect("/swagger.html"));
+} else {
+  // Local Bun.serve: no CDN, serve static files directly.
+  app.get(
+    "/swagger",
+    serveStatic({
+      path: isProd ? "./public/swagger.html" : "./src/docs.html",
+    }),
+  );
+  app.get(
+    "/*",
+    serveStatic({
+      path: "./public/index.html",
+    }),
+  );
+}
