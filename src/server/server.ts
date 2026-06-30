@@ -1,13 +1,14 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { serveStatic } from "hono/bun";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
-import { registerHelloRoutes } from "./routes/hello";
-import { patchOpenApiLoginExample, registerLoginRoutes } from "./routes/login";
+import type { AppEnv } from "./lib/app-env";
+import { applyOpenApiPatches } from "./lib/openapi-patches";
+import { registerAllRoutes } from "./routes";
 
-const root = join(import.meta.dir, "..");
+const root = join(import.meta.dir, "../..");
 const builtSwaggerPath = join(root, "public", "swagger.html");
 const spaPath = join(root, "public", "index.html");
 
@@ -24,13 +25,13 @@ function requestOrigin(c: Context): string {
 }
 
 const openApiInfo = {
-  title: "Ethan DApp API",
+  title: "Ethan DApp Server API",
   version: "1.0.0",
   description:
     "OpenAPI docs from Hono + Zod. Developer guide: see the develop/ directory in the repo.",
 };
 
-export const app = new OpenAPIHono({
+export const app = new OpenAPIHono<AppEnv>({
   defaultHook: (result, c) => {
     if (!result.success) {
       return c.json({ message: "Validation failed" }, 400);
@@ -40,8 +41,7 @@ export const app = new OpenAPIHono({
 
 app.use("/api/*", cors());
 
-registerHelloRoutes(app);
-registerLoginRoutes(app);
+registerAllRoutes(app);
 
 app.get("/api/openapi.json", async (c) => {
   const origin = requestOrigin(c);
@@ -50,19 +50,38 @@ app.get("/api/openapi.json", async (c) => {
     info: openApiInfo,
     servers: [{ url: origin }],
   });
-  await patchOpenApiLoginExample(doc, origin);
+  await applyOpenApiPatches(doc, origin);
   return c.json(doc);
 });
 
-app.get("/", (c) => c.redirect("/swagger"));
+const logoRelative = existsSync(join(root, "public", "logo.svg"))
+  ? "public/logo.svg"
+  : "src/client/logo.svg";
+
+app.get("/logo.svg", serveStatic({ root, path: logoRelative }));
 
 const swaggerRelative = existsSync(builtSwaggerPath)
   ? "public/swagger.html"
-  : "src/docs.html";
+  : "src/client/swagger.html";
 
 app.get("/swagger", serveStatic({ root, path: swaggerRelative }));
 app.get("/swagger.html", serveStatic({ root, path: swaggerRelative }));
+app.get("/swagger/", (c) => c.redirect("/swagger"));
 
-if (existsSync(spaPath)) {
-  app.get("/*", serveStatic({ root, path: "public/index.html" }));
+if (process.env.NODE_ENV === "production" && existsSync(spaPath)) {
+  app.get("/", serveStatic({ root, path: "public/index.html" }));
+  app.get("/*", (c) => {
+    const path = c.req.path;
+    if (path.startsWith("/api") || path.startsWith("/swagger")) {
+      return c.notFound();
+    }
+
+    const relativePath = path.slice(1);
+    const assetPath = join(root, "public", relativePath);
+    if (relativePath && existsSync(assetPath) && statSync(assetPath).isFile()) {
+      return new Response(Bun.file(assetPath));
+    }
+
+    return new Response(Bun.file(spaPath));
+  });
 }

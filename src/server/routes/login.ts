@@ -1,4 +1,5 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { AppEnv } from "../lib/app-env";
 import { createDemoLoginPayload } from "../lib/demo-login";
 
 const LoginBodySchema = z
@@ -16,9 +17,11 @@ const LoginSuccessSchema = z
   .object({
     code: z.literal(200).openapi({ example: 200 }),
     data: z.object({
-      userToken: z
-        .string()
-        .openapi({ example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }),
+      userToken: z.string().openapi({
+        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        description:
+          "JWT for protected routes. In Swagger: Authorize → paste this value only (no Bearer prefix).",
+      }),
     }),
   })
   .openapi("LoginSuccess");
@@ -84,7 +87,7 @@ const loginRoute = createRoute({
   },
 });
 
-export function registerLoginRoutes(app: OpenAPIHono) {
+export function registerLoginRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(loginRoute, async (c) => {
     const { generateToken, verifySiweLogin } = await import("../lib/auth");
     const body = c.req.valid("json");
@@ -106,7 +109,7 @@ export function registerLoginRoutes(app: OpenAPIHono) {
 
 type OpenApiDoc = ReturnType<OpenAPIHono["getOpenAPIDocument"]>;
 
-export async function patchOpenApiLoginExample(
+export async function patchLoginOpenApiExample(
   doc: OpenApiDoc,
   origin: string,
 ) {

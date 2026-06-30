@@ -4,7 +4,7 @@ This project uses **Hono + @hono/zod-openapi**: route definition, validation, ha
 
 ## Two steps
 
-### 1. Add a route module under `src/routes/`
+### 1. Add a route module under `src/server/routes/`
 
 Define the Zod schema, `createRoute`, and handler in one file:
 
@@ -58,28 +58,79 @@ export function registerUserRoutes(app: OpenAPIHono) {
 }
 ```
 
-### 2. Register the route module in `src/server.ts`
+### 2. Register the route module in `src/server/routes/index.ts`
 
 ```ts
-import { registerUserRoutes } from "./routes/user";
+import { registerUserRoutes } from "./user";
 
-registerUserRoutes(app);
+export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
+  // ...
+  registerUserRoutes(app);
+}
 ```
 
-Refresh `/swagger` to see the new endpoint. No need to hand-write `openapi.json` or change `src/index.ts`.
+Refresh `/swagger` to see the new endpoint. No need to hand-write `openapi.json` or change `src/server/server.ts` / `src/server/index.ts`.
+
+## Protected routes (JWT)
+
+1. Register Bearer scheme once — already done in `registerOpenApiSecurity()` via `src/server/routes/index.ts`.
+2. Add middleware on the path:
+
+```ts
+import { requireAuth } from "../lib/auth-middleware";
+import { BEARER_SECURITY_SCHEME } from "../lib/openapi-security";
+
+const meRoute = createRoute({
+  method: "get",
+  path: "/api/me",
+  security: [{ [BEARER_SECURITY_SCHEME]: [] }],
+  // ...
+});
+
+export function registerMeRoutes(app: OpenAPIHono<AppEnv>) {
+  app.use("/api/me", requireAuth);
+  app.openapi(meRoute, (c) =>
+    c.json({ code: 200, data: { address: c.get("userAddress") } }, 200),
+  );
+}
+```
+
+Call protected endpoints with the `userToken` from `POST /api/login`:
+
+```bash
+curl http://localhost:3000/api/me \
+  -H "Authorization: Bearer <userToken>"
+```
+
+The server accepts the token with or without a `Bearer ` prefix. Paste the token only when using clients that add `Bearer` automatically.
+
+See [src/server/routes/me.ts](../src/server/routes/me.ts) for a full example.
+
+## Swagger Try it out examples
+
+If an endpoint needs a dynamic default body in Swagger, export a patch from the route module and register it in `src/server/lib/openapi-patches.ts`:
+
+```ts
+const patches: OpenApiPatch[] = [patchLoginOpenApiExample, patchYourOpenApiExample];
+```
 
 ## File responsibilities
 
 | File | Role |
 |------|------|
-| `src/routes/*.ts` | Schema + `createRoute` + handler (`app.openapi`) |
-| `src/server.ts` | Hono app: routes, OpenAPI, static files |
-| `src/index.ts` | Bun entry — `Bun.serve({ port, fetch: app.fetch })` |
+| `src/server/routes/*.ts` | Schema + `createRoute` + handler (`app.openapi`) |
+| `src/server/routes/index.ts` | Register all routes + OpenAPI security schemes |
+| `src/server/lib/openapi-patches.ts` | Central Swagger spec patches |
+| `src/server/lib/auth-middleware.ts` | `requireAuth` JWT middleware |
+| `src/server/server.ts` | Hono app shell, OpenAPI JSON, static files |
+| `src/server/index.ts` | Bun entry — `Bun.serve({ port, fetch: app.fetch })` |
+| `src/client/` | React SPA + `swagger.html` |
 
 ## Conventions
 
 - Path params: use OpenAPI style `/api/foo/{id}` in `createRoute` (Hono converts internally)
 - `tags` group endpoints in Swagger (e.g. `"Users"`, `"Auth"`)
 - `c.req.valid("json" | "param" | "query")` returns validated, typed input — define the handler inline in `app.openapi(route, async (c) => { ... })` so types infer correctly
-- For auth, add `security` on `createRoute` and register `securitySchemes` via `app.openAPIRegistry`
-- See `src/routes/login.ts` for SIWE login with multiple response schemas (200 / 401 / 500)
+- For auth, add `security: [{ [BEARER_SECURITY_SCHEME]: [] }]` on `createRoute`, use `app.use(path, requireAuth)`, and read `c.get("userAddress")` in the handler
+- See `src/server/routes/login.ts` for SIWE login with multiple response schemas (200 / 401 / 500)
+- See `src/server/routes/me.ts` for JWT-protected route

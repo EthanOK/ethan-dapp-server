@@ -10,22 +10,24 @@ cp .env.example .env   # set JWT_SECRET_KEY for /api/login
 bun dev
 ```
 
-| URL                                    | Description                |
-| -------------------------------------- | -------------------------- |
-| http://localhost:3000/swagger          | Swagger UI (default entry) |
-| http://localhost:3000/api/openapi.json | OpenAPI spec               |
-| http://localhost:3000/api/hello        | Example API                |
-| http://localhost:3000/api/login        | SIWE wallet login          |
+| URL                                    | Description           |
+| -------------------------------------- | --------------------- |
+| http://localhost:3000/                 | Home (React SPA)      |
+| http://localhost:3000/swagger          | Swagger UI            |
+| http://localhost:3000/api/openapi.json | OpenAPI spec          |
+| http://localhost:3000/api/hello        | Example API           |
+| http://localhost:3000/api/login        | SIWE wallet login     |
+| http://localhost:3000/api/me           | Current session (JWT) |
 
 ## Scripts
 
-| Command         | Description                                     |
-| --------------- | ----------------------------------------------- |
-| `bun dev`       | Dev server with HMR (`bun --hot src/index.ts`)  |
-| `bun run build` | Bundle frontend to `public/`; copy Swagger HTML |
-| `bun run start` | Production server (`NODE_ENV=production`)       |
-| `bun run fmt`   | Format with Prettier                            |
-| `bun run lint`  | Type-check with `tsc --noEmit`                  |
+| Command         | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| `bun dev`       | Dev server with HMR (`bun --hot src/server/index.ts`) |
+| `bun run build` | Bundle frontend to `public/`; copy Swagger HTML       |
+| `bun run start` | Production server (`NODE_ENV=production`)             |
+| `bun run fmt`   | Format with Prettier                                  |
+| `bun run lint`  | Type-check with `tsc --noEmit`                        |
 
 ## Environment
 
@@ -39,13 +41,29 @@ Copy `.env.example` to `.env`:
 
 ## Architecture
 
-| File              | Role                                            |
-| ----------------- | ----------------------------------------------- |
-| `src/index.ts`    | Entry — `Bun.serve({ port, fetch: app.fetch })` |
-| `src/server.ts`   | Hono app: routes, OpenAPI, static files         |
-| `src/routes/*.ts` | API modules (schema + handler + OpenAPI)        |
-| `src/lib/`        | Auth, demo login payload for Swagger            |
-| `public/`         | Build output (`bun run build`)                  |
+```
+src/
+├── client/          # React SPA + swagger.html
+│   ├── index.html   # Home entry (dev: Bun HTML import)
+│   ├── swagger.html # Swagger UI shell (unpkg CDN)
+│   ├── frontend.tsx
+│   └── App.tsx
+└── server/          # Bun.serve + Hono API
+    ├── index.ts     # Entry — Bun.serve
+    ├── server.ts    # Hono app, OpenAPI, static files
+    ├── routes/      # API modules (incl. /api/me JWT example)
+    └── lib/         # Auth, OpenAPI patches, middleware
+public/              # Build output (bun run build)
+```
+
+| Path                     | Role                                            |
+| ------------------------ | ----------------------------------------------- |
+| `src/server/index.ts`    | Entry — `Bun.serve({ port, fetch: app.fetch })` |
+| `src/server/server.ts`   | Hono app: routes, OpenAPI, static files         |
+| `src/server/routes/*.ts` | API modules (schema + handler + OpenAPI)        |
+| `src/server/lib/`        | Auth, demo login, middleware, OpenAPI patches   |
+| `src/client/`            | React frontend source                           |
+| `public/`                | Build output (`bun run build`)                  |
 
 ## Production
 
@@ -54,8 +72,8 @@ bun run build
 bun run start
 ```
 
-- Without `bun run build`, `/swagger` falls back to `src/docs.html`; the React SPA is not served.
-- With build, static assets and Swagger are served from `public/`.
+- **Dev** (`bun dev`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/client/swagger.html`.
+- **Prod** (`bun run start`): requires `bun run build` first — home, Swagger, and assets are served from `public/`.
 
 ## Deploy (Render)
 
@@ -75,5 +93,6 @@ See the [develop/](./develop/) directory.
 
 | Doc                                                    | Description                   |
 | ------------------------------------------------------ | ----------------------------- |
+| [develop/architecture.md](./develop/architecture.md)   | System architecture           |
 | [develop/add-api.md](./develop/add-api.md)             | How to add a new API endpoint |
 | [develop/deploy-render.md](./develop/deploy-render.md) | Deploy to Render              |

@@ -1,4 +1,5 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
+import type { AppEnv } from "../lib/app-env";
 
 const HelloResponseSchema = z
   .object({
@@ -76,7 +77,7 @@ const helloByNameRoute = createRoute({
   },
 });
 
-export function registerHelloRoutes(app: OpenAPIHono) {
+export function registerHelloRoutes(app: OpenAPIHono<AppEnv>) {
   app.openapi(helloGetRoute, (c) =>
     c.json({
       message: "Hello, world!",

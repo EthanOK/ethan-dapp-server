@@ -160,6 +160,22 @@ code {
   transform: translateY(-1px);
   cursor: pointer;
 }
+.swagger-link {
+  display: inline-block;
+  margin-bottom: 2rem;
+  background: #646cff;
+  color: #fff;
+  text-decoration: none;
+  border: 0;
+  padding: 0.6rem 1.4rem;
+  border-radius: 8px;
+  font-weight: 700;
+  transition: 0.1s;
+}
+.swagger-link:hover {
+  background: #535bf2;
+  transform: translateY(-1px);
+}
 .response-area {
   width: 100%;
   min-height: 120px;
