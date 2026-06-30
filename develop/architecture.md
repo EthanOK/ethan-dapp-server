@@ -107,12 +107,14 @@ ethan-dapp-server/
 │       ├── server.ts         # Hono app assembly
 │       ├── static/
 │       │   └── swagger.html  # Swagger UI shell (dev fallback)
-│       ├── config.ts         # Env: JWT_SECRET_KEY, JWT_EXPIRES
+│       ├── config.ts         # Env: JWT_SECRET_KEY, JWT_EXPIRES, WEBHOOK_*
 │       ├── routes/           # One module per API area
 │       │   ├── index.ts      # registerAllRoutes
+│       │   ├── health.ts
 │       │   ├── hello.ts
 │       │   ├── login.ts
-│       │   └── me.ts
+│       │   ├── me.ts
+│       │   └── webhooks.ts
 │       └── lib/
 │           ├── auth.ts
 │           ├── auth-middleware.ts
@@ -199,6 +201,27 @@ sequenceDiagram
 - **SIWE (EIP-4361)** message format; signature checked with ethers (not the `siwe` verify path at runtime).
 - **JWT** signed with `JWT_SECRET_KEY`; expiry from `JWT_EXPIRES` (default `7d`).
 - Protected example: `GET /api/me` uses `requireAuth` — pass `Authorization: Bearer <userToken>`.
+
+## Webhook relay
+
+`POST /api/webhooks` (JWT-protected) routes an inbound payload by its `destination` field to a per-destination target URL.
+
+```mermaid
+flowchart LR
+  C["POST /api/webhooks<br/>{ destination, ...payload }"] --> A[requireAuth JWT]
+  A --> R["webhookTargetFor(destination)<br/>WEBHOOK_&lt;DEST&gt;_URL"]
+  R -->|missing| E400[400 unknown destination]
+  R -->|found| F["fetch target<br/>(strip destination, relay headers)"]
+  F -->|2xx| OK["200 { forwarded, targetStatus }"]
+  F -->|non-2xx| E502["502 { targetStatus }"]
+  F -->|error/timeout| E502b[502 message]
+```
+
+- **Routing**: `destination` resolves to env var `WEBHOOK_<DESTINATION>_URL` (e.g. `discord` → `WEBHOOK_DISCORD_URL`); adding a destination needs only a new env var.
+- **Forwarded body**: all fields except `destination`.
+- **Headers**: upstream headers relayed, except hop-by-hop headers and the JWT `Authorization` (not leaked to the target).
+- **Result**: target `2xx` → `200` with `targetStatus`; non-2xx or unreachable → `502`.
+- **Timeout**: `WEBHOOK_FORWARD_TIMEOUT_MS` (default `10000`).
 
 ## Static assets
 

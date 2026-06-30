@@ -24,6 +24,8 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 | --- | --- | --- |
 | `JWT_SECRET_KEY` | Yes | Random secret for JWT signing |
 | `JWT_EXPIRES` | No | Default `7d` |
+| `WEBHOOK_<DEST>_URL` | For relay | Per-destination target, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
+| `WEBHOOK_FORWARD_TIMEOUT_MS` | No | Forward request timeout (default `10000`) |
 | `NODE_ENV` | Set by blueprint | `production` |
 
 `PORT` is set automatically by Render — do not override.

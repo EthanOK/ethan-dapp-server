@@ -1,10 +1,27 @@
 process.env.JWT_SECRET_KEY ??= "test-jwt-secret";
 process.env.NODE_ENV ??= "production";
 
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createDemoLoginPayload } from "../src/server/lib/demo-login";
 
 const origin = "http://localhost:3000";
+
+// Local target that the "discord" destination should forward to.
+let lastForwarded: unknown = null;
+let lastForwardedHeaders: Headers | null = null;
+let targetStatusToReturn = 200;
+const forwardTarget = Bun.serve({
+  port: 0,
+  async fetch(req) {
+    lastForwardedHeaders = req.headers;
+    lastForwarded = await req.json();
+    return new Response(JSON.stringify({ ok: targetStatusToReturn < 400 }), {
+      status: targetStatusToReturn,
+      headers: { "content-type": "application/json" },
+    });
+  },
+});
+process.env.WEBHOOK_DISCORD_URL = `http://localhost:${forwardTarget.port}`;
 
 let app: Awaited<typeof import("../src/server/server")>["app"];
 
@@ -12,8 +29,23 @@ beforeAll(async () => {
   ({ app } = await import("../src/server/server"));
 });
 
+afterAll(() => {
+  forwardTarget.stop(true);
+});
+
 async function fetchApp(path: string, init?: RequestInit): Promise<Response> {
   return await app.fetch(new Request(`${origin}${path}`, init));
+}
+
+async function getUserToken(): Promise<string> {
+  const payload = await createDemoLoginPayload(origin);
+  const res = await fetchApp("/api/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const { data } = await res.json();
+  return data.userToken as string;
 }
 
 describe("API availability", () => {
@@ -106,5 +138,83 @@ describe("API availability", () => {
     const html = await res.text();
     expect(html).toContain('id="swagger-ui"');
     expect(html).toContain("/api/openapi.json");
+  });
+
+  test("POST /api/webhooks without token returns 401", async () => {
+    const res = await fetchApp("/api/webhooks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ destination: "discord", content: "hi" }),
+    });
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.code).toBe(-401);
+  });
+
+  test("POST /api/webhooks routes by destination and forwards payload", async () => {
+    const token = await getUserToken();
+
+    const res = await fetchApp("/api/webhooks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "X-Webhook-Event": "ping",
+      },
+      body: JSON.stringify({ destination: "discord", content: "Hello" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.code).toBe(200);
+    expect(body.data?.forwarded).toBe(true);
+    expect(body.data?.destination).toBe("discord");
+    expect(body.data?.targetStatus).toBe(200);
+
+    // `destination` is stripped; remaining payload is forwarded.
+    expect(lastForwarded).toEqual({ content: "Hello" });
+
+    // Upstream custom header is relayed; our JWT Authorization is stripped.
+    expect(lastForwardedHeaders?.get("x-webhook-event")).toBe("ping");
+    expect(lastForwardedHeaders?.get("authorization")).toBeNull();
+  });
+
+  test("POST /api/webhooks returns 502 when target responds non-2xx", async () => {
+    const token = await getUserToken();
+    targetStatusToReturn = 500;
+    try {
+      const res = await fetchApp("/api/webhooks", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ destination: "discord", content: "x" }),
+      });
+
+      expect(res.status).toBe(502);
+      const body = await res.json();
+      expect(body.code).toBe(502);
+      expect(body.targetStatus).toBe(500);
+    } finally {
+      targetStatusToReturn = 200;
+    }
+  });
+
+  test("POST /api/webhooks unknown destination returns 400", async () => {
+    const token = await getUserToken();
+
+    const res = await fetchApp("/api/webhooks", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ destination: "nope", content: "x" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe(-400);
   });
 });

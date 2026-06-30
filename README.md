@@ -19,6 +19,7 @@ bun dev
 | http://localhost:3000/api/hello        | Example API           |
 | http://localhost:3000/api/login        | SIWE wallet login     |
 | http://localhost:3000/api/me           | Current session (JWT) |
+| http://localhost:3000/api/webhooks     | Webhook relay (JWT)   |
 
 ## Scripts
 
@@ -39,6 +40,8 @@ Copy `.env.example` to `.env`:
 | ---------------- | --------------- | ---------------------------------------------- |
 | `JWT_SECRET_KEY` | Yes (for login) | Secret for signing JWT `userToken`             |
 | `JWT_EXPIRES`    | No              | JWT expiry (default `7d`)                      |
+| `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
+| `WEBHOOK_FORWARD_TIMEOUT_MS` | No  | Forward request timeout (default `10000`)      |
 | `PORT`           | No              | Listen port (default `3000`; Render sets this) |
 
 ## Architecture

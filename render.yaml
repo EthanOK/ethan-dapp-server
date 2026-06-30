@@ -9,3 +9,6 @@ services:
         value: production
       - key: JWT_SECRET_KEY
         sync: false
+      # Webhook relay target per destination (e.g. destination "discord").
+      - key: WEBHOOK_DISCORD_URL
+        sync: false
