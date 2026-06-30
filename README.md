@@ -26,6 +26,7 @@ bun dev
 | `bun dev`       | Dev server with HMR (`bun --hot src/server/index.ts`) |
 | `bun run build` | Bundle frontend to `public/`; copy Swagger HTML       |
 | `bun run start` | Production server (`NODE_ENV=production`)             |
+| `bun test`      | API 可用性冒烟测试（`app.fetch`，无需启动服务）       |
 | `bun run fmt`   | Format with Prettier                                  |
 | `bun run lint`  | Type-check with `tsc --noEmit`                        |
 
