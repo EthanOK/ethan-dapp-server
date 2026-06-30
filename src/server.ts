@@ -1,9 +1,26 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { serveStatic } from "hono/bun";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { cors } from "hono/cors";
+import type { Context } from "hono";
 import { registerHelloRoutes } from "./routes/hello";
 
-const isProd = process.env.NODE_ENV === "production";
-const onVercel = !!process.env.VERCEL;
+const root = join(import.meta.dir, "..");
+const builtSwaggerPath = join(root, "public", "swagger.html");
+const spaPath = join(root, "public", "index.html");
+
+function requestOrigin(c: Context): string {
+  const proto =
+    c.req.header("x-forwarded-proto")?.split(",")[0]?.trim() ??
+    new URL(c.req.url).protocol.replace(":", "");
+  const host =
+    c.req.header("x-forwarded-host")?.split(",")[0]?.trim() ??
+    c.req.header("host") ??
+    new URL(c.req.url).host;
+
+  return `${proto}://${host}`;
+}
 
 const openApiInfo = {
   title: "Ethan DApp API",
@@ -20,6 +37,8 @@ export const app = new OpenAPIHono({
   },
 });
 
+app.use("/api/*", cors());
+
 registerHelloRoutes(app);
 
 app.get("/api/openapi.json", (c) =>
@@ -27,7 +46,7 @@ app.get("/api/openapi.json", (c) =>
     app.getOpenAPIDocument({
       openapi: "3.0.3",
       info: openApiInfo,
-      servers: [{ url: new URL(c.req.url).origin }],
+      servers: [{ url: requestOrigin(c) }],
     }),
   ),
 );
@@ -39,21 +58,13 @@ app.post("/api/login", async (c) => {
 
 app.get("/", (c) => c.redirect("/swagger"));
 
-if (onVercel) {
-  // Vercel CDN serves public/swagger.html; server only redirects.
-  app.get("/swagger", (c) => c.redirect("/swagger.html"));
-} else {
-  // Local Bun.serve: no CDN, serve static files directly.
-  app.get(
-    "/swagger",
-    serveStatic({
-      path: isProd ? "./public/swagger.html" : "./src/docs.html",
-    }),
-  );
-  app.get(
-    "/*",
-    serveStatic({
-      path: "./public/index.html",
-    }),
-  );
+const swaggerRelative = existsSync(builtSwaggerPath)
+  ? "public/swagger.html"
+  : "src/docs.html";
+
+app.get("/swagger", serveStatic({ root, path: swaggerRelative }));
+app.get("/swagger.html", serveStatic({ root, path: swaggerRelative }));
+
+if (existsSync(spaPath)) {
+  app.get("/*", serveStatic({ root, path: "public/index.html" }));
 }
