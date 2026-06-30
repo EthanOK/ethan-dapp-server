@@ -43,14 +43,15 @@ Copy `.env.example` to `.env`:
 
 ```
 src/
-├── client/          # React SPA + swagger.html
+├── client/          # React SPA
 │   ├── index.html   # Home entry (dev: Bun HTML import)
-│   ├── swagger.html # Swagger UI shell (unpkg CDN)
 │   ├── frontend.tsx
 │   └── App.tsx
 └── server/          # Bun.serve + Hono API
     ├── index.ts     # Entry — Bun.serve
     ├── server.ts    # Hono app, OpenAPI, static files
+    ├── static/
+    │   └── swagger.html  # Swagger UI shell (unpkg CDN)
     ├── routes/      # API modules (incl. /api/me JWT example)
     └── lib/         # Auth, OpenAPI patches, middleware
 public/              # Build output (bun run build)
@@ -72,7 +73,7 @@ bun run build
 bun run start
 ```
 
-- **Dev** (`bun dev`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/client/swagger.html`.
+- **Dev** (`bun dev`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/server/static/swagger.html`.
 - **Prod** (`bun run start`): requires `bun run build` first — home, Swagger, and assets are served from `public/`.
 
 ## Deploy (Render)

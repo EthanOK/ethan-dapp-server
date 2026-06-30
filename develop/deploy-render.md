@@ -33,8 +33,7 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 `bun run build` produces:
 
 - `public/index.html` + bundled JS/CSS (React SPA)
-- `public/swagger.html` (copied from `src/client/swagger.html`)
-- `public/logo.svg` (favicon)
+- `public/swagger.html` (copied from `src/server/static/swagger.html`)
 
 `bun run start` runs `src/server/index.ts`, which calls `Bun.serve` and serves API + static files.
 

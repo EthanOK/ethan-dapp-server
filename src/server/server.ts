@@ -54,15 +54,9 @@ app.get("/api/openapi.json", async (c) => {
   return c.json(doc);
 });
 
-const logoRelative = existsSync(join(root, "public", "logo.svg"))
-  ? "public/logo.svg"
-  : "src/client/logo.svg";
-
-app.get("/logo.svg", serveStatic({ root, path: logoRelative }));
-
 const swaggerRelative = existsSync(builtSwaggerPath)
   ? "public/swagger.html"
-  : "src/client/swagger.html";
+  : "src/server/static/swagger.html";
 
 app.get("/swagger", serveStatic({ root, path: swaggerRelative }));
 app.get("/swagger.html", serveStatic({ root, path: swaggerRelative }));

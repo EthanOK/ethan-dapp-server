@@ -124,7 +124,8 @@ const patches: OpenApiPatch[] = [patchLoginOpenApiExample, patchYourOpenApiExamp
 | `src/server/lib/auth-middleware.ts` | `requireAuth` JWT middleware |
 | `src/server/server.ts` | Hono app shell, OpenAPI JSON, static files |
 | `src/server/index.ts` | Bun entry — `Bun.serve({ port, fetch: app.fetch })` |
-| `src/client/` | React SPA + `swagger.html` |
+| `src/client/` | React SPA |
+| `src/server/static/swagger.html` | Swagger UI shell |
 
 ## Conventions
 

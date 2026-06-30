@@ -41,7 +41,7 @@ flowchart TB
       DemoLogin[demo-login.ts]
     end
 
-    Static[serveStatic public/ or src/client/swagger.html]
+    Static[serveStatic public/ or src/server/static/swagger.html]
     OpenAPI["/api/openapi.json"]
   end
 
@@ -97,15 +97,16 @@ sequenceDiagram
 ```
 ethan-dapp-server/
 ├── src/
-│   ├── client/               # React SPA + Swagger UI (bundled to public/)
+│   ├── client/               # React SPA (bundled to public/)
 │   │   ├── index.html
-│   │   ├── swagger.html      # Swagger UI shell (dev fallback)
 │   │   ├── frontend.tsx
 │   │   ├── App.tsx
 │   │   └── ...
 │   └── server/               # Bun.serve + Hono API
 │       ├── index.ts          # Entry: Bun.serve
 │       ├── server.ts         # Hono app assembly
+│       ├── static/
+│       │   └── swagger.html  # Swagger UI shell (dev fallback)
 │       ├── config.ts         # Env: JWT_SECRET_KEY, JWT_EXPIRES
 │       ├── routes/           # One module per API area
 │       │   ├── index.ts      # registerAllRoutes
@@ -206,12 +207,9 @@ sequenceDiagram
 | `/` | `src/client/index.html` (Bun HTML import) | Dev (`bun dev`) |
 | `/` | `public/index.html` | Prod after `bun run build` |
 | `/swagger` | `public/swagger.html` | Prod after build |
-| `/swagger` | `src/client/swagger.html` | Dev / no build |
-| `/logo.svg` | `src/client/logo.svg` or `public/logo.svg` | Favicon for home & Swagger |
+| `/swagger` | `src/server/static/swagger.html` | Dev / no build |
 
-`src/client/swagger.html` loads Swagger UI from unpkg CDN and reads `/api/openapi.json`.
-
-`bun run build` bundles React from `src/client/index.html` into `public/`, and copies `swagger.html` + `logo.svg` to `public/`.
+`bun run build` bundles React from `src/client/index.html` into `public/` (favicon via bundled asset) and copies `src/server/static/swagger.html` to `public/`.
 
 ## Deployment (Render)
 
