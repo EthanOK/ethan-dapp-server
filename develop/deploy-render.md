@@ -13,7 +13,7 @@ This app runs as a **Bun Web Service** using `Bun.serve` + Hono. No Docker or No
 | Setting | Value |
 | --- | --- |
 | Runtime | Bun |
-| Build Command | `bun install && bun run build` |
+| Build Command | `bun run build` (Render Bun runtime runs `bun install` first; do not use `&&` — it may be truncated) |
 | Start Command | `bun run start` |
 
 Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
@@ -35,7 +35,8 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 `bun run build` produces:
 
 - `public/index.html` + bundled JS/CSS (React SPA)
-- `public/swagger.html` (copied from `src/server/static/swagger.html`)
+
+Swagger HTML is served from `src/server/static/` at runtime (not copied to `public/`).
 
 `bun run start` runs `src/server/index.ts`, which calls `Bun.serve` and serves API + static files.
 
