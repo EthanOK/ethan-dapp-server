@@ -2,7 +2,8 @@ import clientIndex from "../client/index.html";
 import { app } from "./server";
 
 const isDev = process.env.NODE_ENV !== "production";
-const port = Number(process.env.PORT ?? 3000);
+const defaultPort = isDev ? 3000 : 3001;
+const port = Number(process.env.PORT ?? defaultPort);
 
 Bun.serve({
   port,

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swagger UI — Password required</title>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #000;
+        --title: #7eb8ff;
+        --text: rgba(255, 255, 255, 0.88);
+        --input-bg: #b8c8d8;
+        --input-text: #111;
+        --error: #f87171;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "DM Sans", sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .gate {
+        width: min(520px, 100%);
+      }
+
+      h1 {
+        margin: 0 0 20px;
+        font-size: clamp(2.25rem, 5.5vw, 3rem);
+        font-weight: 600;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+        color: var(--title);
+        text-align: center;
+      }
+
+      .desc {
+        margin: 0 0 40px;
+        max-width: 36em;
+        font-size: 1rem;
+        font-weight: 400;
+        color: var(--text);
+      }
+
+      form {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        max-width: 100%;
+      }
+
+      .input-wrap {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        background: var(--input-bg);
+        border-radius: 3px;
+        transition: box-shadow 0.2s;
+      }
+
+      .input-wrap:focus-within {
+        box-shadow: 0 0 0 2px rgba(126, 184, 255, 0.45);
+      }
+
+      input[type="password"] {
+        flex: 1;
+        min-width: 0;
+        height: 52px;
+        padding: 0 18px;
+        border: none;
+        background: transparent;
+        color: var(--input-text);
+        font: inherit;
+        font-size: 1rem;
+      }
+
+      input[type="password"]:focus {
+        outline: none;
+      }
+
+      button[type="submit"] {
+        flex-shrink: 0;
+        padding: 8px 4px;
+        border: none;
+        background: transparent;
+        color: #fff;
+        font: inherit;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+
+      button[type="submit"]:hover:not(:disabled) {
+        color: var(--title);
+      }
+
+      button[type="submit"]:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .error {
+        margin-top: 14px;
+        min-height: 1.25rem;
+        font-size: 0.9rem;
+        color: var(--error);
+      }
+
+      @media (max-width: 480px) {
+        form {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 16px;
+        }
+
+        button[type="submit"] {
+          align-self: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="gate">
+      <h1>Enter your password</h1>
+      <p class="desc">
+        This page is password-protected. Contact your relationship manager to
+        request access.
+      </p>
+
+      <form id="gate-form" autocomplete="off">
+        <div class="input-wrap">
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autofocus
+            required
+          />
+        </div>
+        <button type="submit" id="submit-btn">Submit</button>
+      </form>
+      <div class="error" id="error" aria-live="polite"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById("gate-form");
+      const passwordInput = document.getElementById("password");
+      const submitBtn = document.getElementById("submit-btn");
+      const errorEl = document.getElementById("error");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        errorEl.textContent = "";
+        submitBtn.disabled = true;
+
+        try {
+          const res = await fetch("/api/swagger-auth", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ password: passwordInput.value }),
+          });
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            errorEl.textContent = body.message || "Invalid password";
+            passwordInput.select();
+            return;
+          }
+
+          window.location.replace("/swagger");
+        } catch {
+          errorEl.textContent = "Unable to verify password. Please try again.";
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

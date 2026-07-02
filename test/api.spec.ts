@@ -1,5 +1,6 @@
 process.env.JWT_SECRET_KEY ??= "test-jwt-secret";
 process.env.NODE_ENV ??= "production";
+process.env.SWAGGER_PASSWORD = "";
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createDemoLoginPayload } from "../src/server/lib/demo-login";
