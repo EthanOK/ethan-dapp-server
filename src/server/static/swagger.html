@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Swagger UI</title>
+    <script>
+      (function () {
+        const KEY = "swagger-ui-theme";
+        const saved = localStorage.getItem(KEY);
+        const dark =
+          saved === "dark" ? true : saved === "light" ? false : true;
+        document.documentElement.classList.toggle("dark-mode", dark);
+      })();
+    </script>
     <link
       rel="icon"
       type="image/png"
@@ -29,12 +38,35 @@
         url: "/api/openapi.json",
         dom_id: "#swagger-ui",
         deepLinking: true,
+        defaultModelsExpandDepth: 0,
         presets: [
           SwaggerUIBundle.presets.apis,
           SwaggerUIStandalonePreset,
         ],
         layout: "StandaloneLayout",
       });
+
+      (function () {
+        const KEY = "swagger-ui-theme";
+        // Built-in toggle applies prefers-color-scheme on mount; re-apply saved choice.
+        setTimeout(() => {
+          const saved = localStorage.getItem(KEY);
+          if (saved === "light") {
+            document.documentElement.classList.remove("dark-mode");
+          } else if (saved === "dark") {
+            document.documentElement.classList.add("dark-mode");
+          }
+        }, 0);
+
+        new MutationObserver(() => {
+          const isDark =
+            document.documentElement.classList.contains("dark-mode");
+          localStorage.setItem(KEY, isDark ? "dark" : "light");
+        }).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      })();
     </script>
   </body>
 </html>
