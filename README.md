@@ -26,7 +26,7 @@ bun dev
 | Command         | Description                                           |
 | --------------- | ----------------------------------------------------- |
 | `bun dev`       | Dev server with HMR (`bun --hot src/server/index.ts`) |
-| `bun run build` | Bundle frontend to `public/`; copy Swagger HTML       |
+| `bun run build` | Bundle frontend to `public/`                          |
 | `bun run start` | Production server (`NODE_ENV=production`)             |
 | `bun test`      | API 可用性冒烟测试（`app.fetch`，无需启动服务）       |
 | `bun run fmt`   | Format with Prettier                                  |
@@ -40,9 +40,10 @@ Copy `.env.example` to `.env`:
 | ---------------- | --------------- | ---------------------------------------------- |
 | `JWT_SECRET_KEY` | Yes (for login) | Secret for signing JWT `userToken`             |
 | `JWT_EXPIRES`    | No              | JWT expiry (default `7d`)                      |
+| `SWAGGER_PASSWORD` | No            | When set, `/swagger` requires a password; `/api/*` stays public |
 | `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
 | `WEBHOOK_FORWARD_TIMEOUT_MS` | No  | Forward request timeout (default `10000`)      |
-| `PORT`           | No              | Listen port (default `3000`; Render sets this) |
+| `PORT`           | No              | Listen port (dev default `3000`, `bun run start` default `3001`; Render sets this) |
 
 ## Architecture
 
@@ -56,7 +57,8 @@ src/
     ├── index.ts     # Entry — Bun.serve
     ├── server.ts    # Hono app, OpenAPI, static files
     ├── static/
-    │   └── swagger.html  # Swagger UI shell (unpkg CDN)
+    │   ├── swagger.html       # Swagger UI shell (unpkg CDN)
+    │   └── swagger-gate.html  # Password gate when SWAGGER_PASSWORD is set
     ├── routes/      # API modules (incl. /api/me JWT example)
     └── lib/         # Auth, OpenAPI patches, middleware
 public/              # Build output (bun run build)
@@ -75,21 +77,22 @@ public/              # Build output (bun run build)
 
 ```bash
 bun run build
-bun run start
+bun run start   # http://localhost:3001 by default
 ```
 
-- **Dev** (`bun dev`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/server/static/swagger.html`.
-- **Prod** (`bun run start`): requires `bun run build` first — home, Swagger, and assets are served from `public/`.
+- **Dev** (`bun dev`, port `3000`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/server/static/swagger.html`.
+- **Prod** (`bun run start`, port `3001` unless `PORT` is set): requires `bun run build` first — home and assets from `public/`; Swagger always from `src/server/static/`.
+- **Swagger UI**: dark mode (default on, persisted in `localStorage`); bottom Schemas section collapsed by default. Optional password gate via `SWAGGER_PASSWORD`.
 
 ## Deploy (Render)
 
 The repo includes [`render.yaml`](./render.yaml) for [Render](https://render.com/):
 
 - **Runtime:** `bun`
-- **Build:** `bun install && bun run build`
+- **Build:** `bun run build` (Render Bun runtime runs `bun install` first)
 - **Start:** `bun run start`
 
-Set `JWT_SECRET_KEY` in the Render dashboard (marked `sync: false` in `render.yaml`). Render injects `PORT` and terminates TLS; the app reads `X-Forwarded-Proto` so OpenAPI `servers` use `https://`.
+Set `JWT_SECRET_KEY` (and optionally `SWAGGER_PASSWORD`) in the Render dashboard (`sync: false` in `render.yaml`). Render injects `PORT` and terminates TLS; the app reads `X-Forwarded-Proto` so OpenAPI `servers` use `https://`.
 
 See [develop/deploy-render.md](./develop/deploy-render.md) for step-by-step setup.
 

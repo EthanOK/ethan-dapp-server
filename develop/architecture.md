@@ -86,7 +86,11 @@ sequenceDiagram
     H->>L: patchOpenApiLoginExample(origin)
     H-->>C: OpenAPI JSON (servers = current origin)
   else /swagger
-    H-->>C: swagger.html (static)
+    alt SWAGGER_PASSWORD set and no cookie
+      H-->>C: swagger-gate.html
+    else authorized
+      H-->>C: swagger.html (from src/server/static/)
+    end
   else /* after build
     H-->>C: public/index.html (SPA fallback)
   end
@@ -106,7 +110,8 @@ ethan-dapp-server/
 │       ├── index.ts          # Entry: Bun.serve
 │       ├── server.ts         # Hono app assembly
 │       ├── static/
-│       │   └── swagger.html  # Swagger UI shell (dev fallback)
+│       │   ├── swagger.html       # Swagger UI shell
+│       │   └── swagger-gate.html  # Password gate page
 │       ├── config.ts         # Env: JWT_SECRET_KEY, JWT_EXPIRES, WEBHOOK_*
 │       ├── routes/           # One module per API area
 │       │   ├── index.ts      # registerAllRoutes
@@ -120,7 +125,8 @@ ethan-dapp-server/
 │           ├── auth-middleware.ts
 │           ├── demo-login.ts
 │           ├── openapi-patches.ts
-│           └── openapi-security.ts
+│           ├── openapi-security.ts
+│           └── swagger-gate.ts
 ├── public/                   # Created by bun run build
 ├── render.yaml
 └── develop/
@@ -130,10 +136,10 @@ ethan-dapp-server/
 
 ### `src/server/index.ts` — process entry
 
-- Reads `PORT` (Render injects this in production).
+- Reads `PORT` (default `3000` in dev, `3001` for `bun run start`; Render injects `PORT` in production).
 - Calls `Bun.serve({ port, fetch: app.fetch })`.
 - **Dev only:** `routes: { "/": clientIndex }` — Bun bundles `src/client/index.html` with HMR.
-- **Prod:** no `routes`; home and Swagger are served by Hono from `public/`.
+- **Prod:** no `routes`; home and SPA assets are served by Hono from `public/`.
 
 ### `src/server/server.ts` — application shell
 
@@ -141,7 +147,9 @@ ethan-dapp-server/
 - Calls `registerAllRoutes(app)` from `routes/index.ts`.
 - Applies CORS on `/api/*`.
 - Serves `/api/openapi.json` with dynamic `servers[0].url` from `requestOrigin()` (reads `X-Forwarded-Proto` / `Host` for Render HTTPS).
-- Serves Swagger and SPA static files.
+- Serves Swagger from `src/server/static/` (always, dev and prod).
+- Optional Swagger password gate when `SWAGGER_PASSWORD` is set (`POST /api/swagger-auth`, HttpOnly cookie).
+- Serves SPA static files from `public/` in production.
 
 ### `src/server/routes/*.ts` — API modules
 
@@ -160,6 +168,7 @@ Adding an API = new file + one line in `routes/index.ts`. See [add-api.md](./add
 | `auth.ts` | Parse SIWE message, verify signature via `ethers.verifyMessage`, issue/verify JWT |
 | `auth-middleware.ts` | `requireAuth` — reads `Authorization` header (Bearer optional) |
 | `demo-login.ts` | Process-local random wallet; builds valid SIWE payload for Swagger Try it out |
+| `swagger-gate.ts` | Optional `/swagger` password gate; HMAC-signed `swagger_access` cookie (24h) |
 
 ## OpenAPI and Swagger
 
@@ -177,6 +186,38 @@ flowchart LR
 - Route, validation, and documentation are defined once — no hand-maintained `openapi.json`.
 - `servers` URL is computed per request so Swagger on Render uses `https://`, avoiding mixed-content errors.
 - Login endpoint gets a **live** `message` + `signature` example tied to the current host (demo wallet, random nonce).
+
+### Swagger UI (`src/server/static/swagger.html`)
+
+- Loads spec from `/api/openapi.json` (public; not behind the Swagger password gate).
+- **Standalone layout** with built-in dark-mode toggle; preference persisted in `localStorage` (`swagger-ui-theme`).
+- Bottom **Schemas** section kept but collapsed by default (`defaultModelsExpandDepth: 0`).
+
+### Swagger password gate
+
+When `SWAGGER_PASSWORD` is set:
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant S as GET /swagger
+  participant A as POST /api/swagger-auth
+
+  B->>S: no swagger_access cookie
+  S-->>B: swagger-gate.html
+  B->>A: { password }
+  alt valid
+    A-->>B: Set-Cookie swagger_access + { ok: true }
+    B->>S: cookie present
+    S-->>B: swagger.html
+  else invalid
+    A-->>B: 401
+  end
+```
+
+- `/api/*` (including `/api/openapi.json`) stays **public** — only the HTML UI is gated.
+- Cookie is HttpOnly, SameSite=Lax, 24h; value is HMAC(password, `"granted"`).
+- Unset `SWAGGER_PASSWORD` → gate disabled, `/swagger` serves UI directly.
 
 ## Authentication flow
 
@@ -229,17 +270,17 @@ flowchart LR
 | --- | --- | --- |
 | `/` | `src/client/index.html` (Bun HTML import) | Dev (`bun dev`) |
 | `/` | `public/index.html` | Prod after `bun run build` |
-| `/swagger` | `public/swagger.html` | Prod after build |
-| `/swagger` | `src/server/static/swagger.html` | Dev / no build |
+| `/swagger` | `src/server/static/swagger.html` | Always (dev and prod) |
+| `/swagger` (gate) | `src/server/static/swagger-gate.html` | When `SWAGGER_PASSWORD` is set and no valid cookie |
 
-`bun run build` bundles React from `src/client/index.html` into `public/` (favicon via bundled asset) and copies `src/server/static/swagger.html` to `public/`.
+`bun run build` bundles React from `src/client/index.html` into `public/` (favicon via bundled asset). Swagger HTML is **not** copied to `public/` — Hono serves it from `src/server/static/` at runtime.
 
 ## Deployment (Render)
 
 ```mermaid
 flowchart LR
   Git[Git push] --> Render[Render build]
-  Render --> Install["bun install"]
+  Render --> Install["bun install (automatic)"]
   Install --> Build["bun run build → public/"]
   Build --> Start["bun run start → Bun.serve"]
   Start --> Live["*.onrender.com"]
@@ -247,10 +288,11 @@ flowchart LR
 
 | Setting | Value |
 | --- | --- |
+| Service name | `ethan-dapp` (blueprint) |
 | Runtime | `bun` |
-| Build | `bun install && bun run build` |
+| Build | `bun run build` (do not chain `bun install &&` — Render truncates `&&`) |
 | Start | `bun run start` |
-| Secrets | `JWT_SECRET_KEY` in dashboard (`sync: false` in blueprint) |
+| Secrets | `JWT_SECRET_KEY`, optional `SWAGGER_PASSWORD` in dashboard (`sync: false` in blueprint) |
 
 See [deploy-render.md](./deploy-render.md) for setup steps.
 
@@ -263,6 +305,8 @@ See [deploy-render.md](./deploy-render.md) for setup steps.
 | Route modules under `src/server/routes/` | Clear boundary; `server.ts` stays a wiring layer |
 | Lazy `import()` in login handler | Keeps cold start reasonable; defers ethers/auth until needed |
 | Demo wallet in `demo-login.ts` | Swagger Try it out works without a real wallet; clearly not for production auth |
+| Swagger from `src/server/static/` | Docs shell stays in source tree; no copy step in build |
+| Optional `SWAGGER_PASSWORD` gate | Protects Swagger UI HTML only; API and OpenAPI JSON remain public for clients |
 | `requestOrigin()` helper | Correct OpenAPI base URL behind Render TLS termination |
 | Single service on Render | API + Swagger + SPA in one Web Service; simpler ops and cost |
 

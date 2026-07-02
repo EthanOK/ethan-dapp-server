@@ -125,7 +125,9 @@ const patches: OpenApiPatch[] = [patchLoginOpenApiExample, patchYourOpenApiExamp
 | `src/server/server.ts` | Hono app shell, OpenAPI JSON, static files |
 | `src/server/index.ts` | Bun entry — `Bun.serve({ port, fetch: app.fetch })` |
 | `src/client/` | React SPA |
-| `src/server/static/swagger.html` | Swagger UI shell |
+| `src/server/static/swagger.html` | Swagger UI shell (dark mode, collapsed Schemas) |
+| `src/server/static/swagger-gate.html` | Swagger password gate page |
+| `src/server/lib/swagger-gate.ts` | Cookie-based Swagger auth when `SWAGGER_PASSWORD` is set |
 
 ## Conventions
 
@@ -135,3 +137,4 @@ const patches: OpenApiPatch[] = [patchLoginOpenApiExample, patchYourOpenApiExamp
 - For auth, add `security: [{ [BEARER_SECURITY_SCHEME]: [] }]` on `createRoute`, use `app.use(path, requireAuth)`, and read `c.get("userAddress")` in the handler
 - See `src/server/routes/login.ts` for SIWE login with multiple response schemas (200 / 401 / 500)
 - See `src/server/routes/me.ts` for JWT-protected route
+- Swagger UI customization lives in `src/server/static/swagger.html` (theme persistence, `defaultModelsExpandDepth`, layout)
