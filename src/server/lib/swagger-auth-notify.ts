@@ -1,0 +1,60 @@
+import type { Context } from "hono";
+import { resolveCountry } from "./ip-country";
+import {
+  SWAGGER_AUTH_NOTIFY_TIMEOUT_MS,
+  swaggerAuthNotifyUrl,
+} from "../config";
+import { requestClientInfo } from "./request-client";
+import { forwardWebhookPayload } from "./webhook-forward";
+
+async function buildSwaggerAuthNotifyPayload(c: Context) {
+  const client = requestClientInfo(c);
+  const country = await resolveCountry(c, client.ip);
+  const lines = [
+    "**Swagger UI login**",
+    `IP: ${client.ip}`,
+    `Country: ${country}`,
+    `User-Agent: ${client.userAgent}`,
+    client.host ? `Host: ${client.host}` : null,
+    client.referer ? `Referer: ${client.referer}` : null,
+    client.forwardedFor ? `X-Forwarded-For: ${client.forwardedFor}` : null,
+    `Time: ${client.timestamp}`,
+  ].filter(Boolean);
+
+  return {
+    event: "swagger_auth_success",
+    content: lines.join("\n"),
+    country,
+    ...client,
+  };
+}
+
+function formatNotifyFailure(
+  result: Extract<
+    Awaited<ReturnType<typeof forwardWebhookPayload>>,
+    { ok: false }
+  >,
+): string {
+  if (result.error) {
+    return result.status > 0
+      ? `${result.error} (HTTP ${result.status})`
+      : result.error;
+  }
+  return `HTTP ${result.status}`;
+}
+
+/** Server-side only: called from POST /api/swagger-auth after password OK. */
+export async function notifySwaggerAuthSuccess(c: Context): Promise<void> {
+  const target = swaggerAuthNotifyUrl();
+  if (!target) return;
+
+  const result = await forwardWebhookPayload(
+    target,
+    await buildSwaggerAuthNotifyPayload(c),
+    SWAGGER_AUTH_NOTIFY_TIMEOUT_MS,
+  );
+
+  if (!result.ok) {
+    console.warn(`Swagger auth notify failed: ${formatNotifyFailure(result)}`);
+  }
+}

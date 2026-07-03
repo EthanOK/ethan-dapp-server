@@ -35,7 +35,11 @@ afterAll(() => {
 });
 
 async function fetchApp(path: string, init?: RequestInit): Promise<Response> {
-  return await app.fetch(new Request(`${origin}${path}`, init));
+  return await app.fetch(new Request(`${origin}${path}`, init), {
+    SERVER: {
+      requestIP: () => ({ address: "127.0.0.1", port: 3000 }),
+    },
+  });
 }
 
 async function getUserToken(): Promise<string> {

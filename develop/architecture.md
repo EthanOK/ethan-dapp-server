@@ -124,9 +124,13 @@ ethan-dapp-server/
 │           ├── auth.ts
 │           ├── auth-middleware.ts
 │           ├── demo-login.ts
+│           ├── ip-country.ts
 │           ├── openapi-patches.ts
 │           ├── openapi-security.ts
-│           └── swagger-gate.ts
+│           ├── request-client.ts
+│           ├── swagger-auth-notify.ts
+│           ├── swagger-gate.ts
+│           └── webhook-forward.ts
 ├── public/                   # Created by bun run build
 ├── render.yaml
 └── develop/
@@ -137,7 +141,7 @@ ethan-dapp-server/
 ### `src/server/index.ts` — process entry
 
 - Reads `PORT` (default `3000` in dev, `3001` for `bun run start`; Render injects `PORT` in production).
-- Calls `Bun.serve({ port, fetch: app.fetch })`.
+- Calls `Bun.serve({ port, fetch })` and passes the Bun `server` into Hono (`SERVER` binding) so handlers can read `server.requestIP(req)`.
 - **Dev only:** `routes: { "/": clientIndex }` — Bun bundles `src/client/index.html` with HMR.
 - **Prod:** no `routes`; home and SPA assets are served by Hono from `public/`.
 
@@ -149,6 +153,7 @@ ethan-dapp-server/
 - Serves `/api/openapi.json` with dynamic `servers[0].url` from `requestOrigin()` (reads `X-Forwarded-Proto` / `Host` for Render HTTPS).
 - Serves Swagger from `src/server/static/` (always, dev and prod).
 - Optional Swagger password gate when `SWAGGER_PASSWORD` is set (`POST /api/swagger-auth`, HttpOnly cookie).
+- On successful Swagger login, optional server-side notify to `SWAGGER_AUTH_NOTIFY_URL` (IP, country, User-Agent; fire-and-forget).
 - Serves SPA static files from `public/` in production.
 
 ### `src/server/routes/*.ts` — API modules
@@ -168,7 +173,11 @@ Adding an API = new file + one line in `routes/index.ts`. See [add-api.md](./add
 | `auth.ts` | Parse SIWE message, verify signature via `ethers.verifyMessage`, issue/verify JWT |
 | `auth-middleware.ts` | `requireAuth` — reads `Authorization` header (Bearer optional) |
 | `demo-login.ts` | Process-local random wallet; builds valid SIWE payload for Swagger Try it out |
+| `request-client.ts` | Client IP (`X-Forwarded-For` → Bun `requestIP`) and request metadata |
+| `ip-country.ts` | Country from proxy headers (`CF-IPCountry`, etc.) or IP lookup (`ipwho.is`) |
+| `swagger-auth-notify.ts` | Server-side Swagger login webhook notify |
 | `swagger-gate.ts` | Optional `/swagger` password gate; HMAC-signed `swagger_access` cookie (24h) |
+| `webhook-forward.ts` | Internal JSON POST helper for notify |
 
 ## OpenAPI and Swagger
 
@@ -202,12 +211,15 @@ sequenceDiagram
   participant B as Browser
   participant S as GET /swagger
   participant A as POST /api/swagger-auth
+  participant N as swagger-auth-notify
 
   B->>S: no swagger_access cookie
   S-->>B: swagger-gate.html
   B->>A: { password }
   alt valid
     A-->>B: Set-Cookie swagger_access + { ok: true }
+    A->>N: notifySwaggerAuthSuccess (async)
+    N-->>W: POST SWAGGER_AUTH_NOTIFY_URL
     B->>S: cookie present
     S-->>B: swagger.html
   else invalid
@@ -218,6 +230,26 @@ sequenceDiagram
 - `/api/*` (including `/api/openapi.json`) stays **public** — only the HTML UI is gated.
 - Cookie is HttpOnly, SameSite=Lax, 24h; value is HMAC(password, `"granted"`).
 - Unset `SWAGGER_PASSWORD` → gate disabled, `/swagger` serves UI directly.
+
+### Swagger login notify
+
+When `SWAGGER_AUTH_NOTIFY_URL` is set, a successful `POST /api/swagger-auth` triggers a **server-side** JSON POST (not from the browser). The response to the client is not blocked if notify fails.
+
+Payload fields include:
+
+| Field | Source |
+| --- | --- |
+| `ip` | `X-Forwarded-For` / `X-Real-IP` / Bun `server.requestIP()` |
+| `country` | `CF-IPCountry` (etc.) → `Local` for loopback/private IPs → `ipwho.is` lookup |
+| `userAgent`, `referer`, `host`, `timestamp` | Request headers |
+| `content` | Human-readable summary (e.g. for Discord webhooks) |
+
+| Env | Default | Role |
+| --- | --- | --- |
+| `SWAGGER_AUTH_NOTIFY_URL` | unset | Webhook target URL |
+| `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | `5000` | Notify fetch timeout |
+
+Local dev: loopback IPs report `Country: Local`. Discord URLs may time out without access to `discord.com` — login still succeeds; leave `SWAGGER_AUTH_NOTIFY_URL` unset locally if not needed.
 
 ## Authentication flow
 
@@ -307,6 +339,7 @@ See [deploy-render.md](./deploy-render.md) for setup steps.
 | Demo wallet in `demo-login.ts` | Swagger Try it out works without a real wallet; clearly not for production auth |
 | Swagger from `src/server/static/` | Docs shell stays in source tree; no copy step in build |
 | Optional `SWAGGER_PASSWORD` gate | Protects Swagger UI HTML only; API and OpenAPI JSON remain public for clients |
+| Server-side Swagger login notify | Audit/alert on docs access without exposing webhook URL to the browser |
 | `requestOrigin()` helper | Correct OpenAPI base URL behind Render TLS termination |
 | Single service on Render | API + Swagger + SPA in one Web Service; simpler ops and cost |
 

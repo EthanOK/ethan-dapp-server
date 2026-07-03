@@ -12,6 +12,7 @@ import {
   swaggerAuthCookieHeader,
   verifySwaggerPassword,
 } from "./lib/swagger-gate";
+import { notifySwaggerAuthSuccess } from "./lib/swagger-auth-notify";
 import { registerAllRoutes } from "./routes";
 
 const root = join(import.meta.dir, "../..");
@@ -79,6 +80,7 @@ app.post("/api/swagger-auth", async (c) => {
   }
 
   c.header("Set-Cookie", swaggerAuthCookieHeader());
+  void notifySwaggerAuthSuccess(c);
   return c.json({ ok: true });
 });
 

@@ -41,6 +41,8 @@ Copy `.env.example` to `.env`:
 | `JWT_SECRET_KEY` | Yes (for login) | Secret for signing JWT `userToken`             |
 | `JWT_EXPIRES`    | No              | JWT expiry (default `7d`)                      |
 | `SWAGGER_PASSWORD` | No            | When set, `/swagger` requires a password; `/api/*` stays public |
+| `SWAGGER_AUTH_NOTIFY_URL` | No       | Server-side webhook URL; on successful Swagger login, POST client IP, country, User-Agent, etc. (not called from the browser) |
+| `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | No | Notify request timeout (default `5000`) |
 | `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
 | `WEBHOOK_FORWARD_TIMEOUT_MS` | No  | Forward request timeout (default `10000`)      |
 | `PORT`           | No              | Listen port (dev default `3000`, `bun run start` default `3001`; Render sets this) |
@@ -82,7 +84,7 @@ bun run start   # http://localhost:3001 by default
 
 - **Dev** (`bun dev`, port `3000`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/server/static/swagger.html`.
 - **Prod** (`bun run start`, port `3001` unless `PORT` is set): requires `bun run build` first — home and assets from `public/`; Swagger always from `src/server/static/`.
-- **Swagger UI**: dark mode (default on, persisted in `localStorage`); bottom Schemas section collapsed by default. Optional password gate via `SWAGGER_PASSWORD`.
+- **Swagger UI**: dark mode (default on, persisted in `localStorage`); bottom Schemas section collapsed by default. Optional password gate via `SWAGGER_PASSWORD`. Optional login notify via `SWAGGER_AUTH_NOTIFY_URL` (server-side; includes IP, country, User-Agent).
 
 ## Deploy (Render)
 
@@ -92,7 +94,7 @@ The repo includes [`render.yaml`](./render.yaml) for [Render](https://render.com
 - **Build:** `bun run build` (Render Bun runtime runs `bun install` first)
 - **Start:** `bun run start`
 
-Set `JWT_SECRET_KEY` (and optionally `SWAGGER_PASSWORD`) in the Render dashboard (`sync: false` in `render.yaml`). Render injects `PORT` and terminates TLS; the app reads `X-Forwarded-Proto` so OpenAPI `servers` use `https://`.
+Set `JWT_SECRET_KEY` (and optionally `SWAGGER_PASSWORD`, `SWAGGER_AUTH_NOTIFY_URL`) in the Render dashboard (`sync: false` in `render.yaml`). Render injects `PORT` and terminates TLS; the app reads `X-Forwarded-Proto` so OpenAPI `servers` use `https://`.
 
 See [develop/deploy-render.md](./develop/deploy-render.md) for step-by-step setup.
 

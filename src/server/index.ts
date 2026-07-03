@@ -8,7 +8,9 @@ const port = Number(process.env.PORT ?? defaultPort);
 Bun.serve({
   port,
   routes: isDev ? { "/": clientIndex } : undefined,
-  fetch: app.fetch,
+  fetch(req, server) {
+    return app.fetch(req, { SERVER: server });
+  },
   development: isDev && {
     hmr: true,
     console: true,

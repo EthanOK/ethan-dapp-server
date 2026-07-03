@@ -25,6 +25,8 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 | `JWT_SECRET_KEY` | Yes | Random secret for JWT signing |
 | `JWT_EXPIRES` | No | Default `7d` |
 | `SWAGGER_PASSWORD` | No | When set, `/swagger` requires a password; `/api/*` stays public |
+| `SWAGGER_AUTH_NOTIFY_URL` | No | Server-side webhook on successful Swagger login (IP, country, User-Agent) |
+| `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | No | Notify timeout (default `5000`) |
 | `WEBHOOK_<DEST>_URL` | For relay | Per-destination target, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
 | `WEBHOOK_FORWARD_TIMEOUT_MS` | No | Forward request timeout (default `10000`) |
 | `NODE_ENV` | Set by blueprint | `production` |
@@ -62,6 +64,16 @@ Set `SWAGGER_PASSWORD` in the Render dashboard to require a password before the 
 - Auth endpoint: `POST /api/swagger-auth` with `{ "password": "..." }`.
 
 Leave `SWAGGER_PASSWORD` unset to serve Swagger UI without a gate (fine for local dev).
+
+## Swagger login notify
+
+Set `SWAGGER_AUTH_NOTIFY_URL` (e.g. a Discord webhook) to receive a server-side alert when someone enters the correct Swagger password.
+
+- Triggered by the API after `POST /api/swagger-auth` succeeds — **not** called from the browser.
+- Payload includes `ip`, `country`, `userAgent`, `referer`, `host`, `timestamp`, and a `content` summary line.
+- `country`: from `CF-IPCountry` when present, else IP geolocation on Render; `Local` for loopback in dev.
+- Notify is async; login still succeeds if the webhook is slow or unreachable.
+- Local dev: Discord may time out without access to `discord.com` — omit the env var locally or use a reachable webhook.
 
 ## Login in Swagger
 
