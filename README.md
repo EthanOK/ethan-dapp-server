@@ -41,7 +41,7 @@ Copy `.env.example` to `.env`:
 | `JWT_SECRET_KEY` | Yes (for login) | Secret for signing JWT `userToken`             |
 | `JWT_EXPIRES`    | No              | JWT expiry (default `7d`)                      |
 | `SWAGGER_PASSWORD` | No            | When set, `/swagger` requires a password; `/api/*` stays public |
-| `SWAGGER_AUTH_NOTIFY_URL` | No       | Server-side webhook URL; on successful Swagger login, POST client IP, country, User-Agent, etc. (not called from the browser) |
+| `SWAGGER_AUTH_NOTIFY_URL` | No       | Server-side webhook URL; on successful Swagger login, POST IP, country, city/region, IP type, ISP, User-Agent, etc. (not called from the browser) |
 | `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | No | Notify request timeout (default `5000`) |
 | `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
 | `WEBHOOK_FORWARD_TIMEOUT_MS` | No  | Forward request timeout (default `10000`)      |
@@ -84,7 +84,7 @@ bun run start   # http://localhost:3001 by default
 
 - **Dev** (`bun dev`, port `3000`): `/` serves `src/client/` via Bun HTML import (HMR); `/swagger` serves `src/server/static/swagger.html`.
 - **Prod** (`bun run start`, port `3001` unless `PORT` is set): requires `bun run build` first — home and assets from `public/`; Swagger always from `src/server/static/`.
-- **Swagger UI**: dark mode (default on, persisted in `localStorage`); bottom Schemas section collapsed by default. Optional password gate via `SWAGGER_PASSWORD`. Optional login notify via `SWAGGER_AUTH_NOTIFY_URL` (server-side; includes IP, country, User-Agent).
+- **Swagger UI**: dark mode (default on, persisted in `localStorage`); bottom Schemas section collapsed by default. Optional password gate via `SWAGGER_PASSWORD`. Optional login notify via `SWAGGER_AUTH_NOTIFY_URL` (server-side; includes IP, country, city/region, VPN/datacenter hint, ISP).
 
 ## Deploy (Render)
 

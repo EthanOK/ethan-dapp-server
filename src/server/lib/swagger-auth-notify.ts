@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { resolveCountry } from "./ip-country";
+import { formatLocation, resolveClientGeo } from "./ip-country";
 import {
   SWAGGER_AUTH_NOTIFY_TIMEOUT_MS,
   swaggerAuthNotifyUrl,
@@ -9,11 +9,15 @@ import { forwardWebhookPayload } from "./webhook-forward";
 
 async function buildSwaggerAuthNotifyPayload(c: Context) {
   const client = requestClientInfo(c);
-  const country = await resolveCountry(c, client.ip);
+  const geo = await resolveClientGeo(c, client.ip);
+  const location = formatLocation(geo.region, geo.city);
   const lines = [
     "**Swagger UI login**",
     `IP: ${client.ip}`,
-    `Country: ${country}`,
+    `Country: ${geo.country}`,
+    location ? `Location: ${location}` : null,
+    geo.security ? `IP type: ${geo.security.label}` : null,
+    geo.connectionOrg ? `ISP/Org: ${geo.connectionOrg}` : null,
     `User-Agent: ${client.userAgent}`,
     client.host ? `Host: ${client.host}` : null,
     client.referer ? `Referer: ${client.referer}` : null,
@@ -24,7 +28,12 @@ async function buildSwaggerAuthNotifyPayload(c: Context) {
   return {
     event: "swagger_auth_success",
     content: lines.join("\n"),
-    country,
+    country: geo.country,
+    region: geo.region,
+    city: geo.city,
+    location,
+    connectionOrg: geo.connectionOrg,
+    security: geo.security,
     ...client,
   };
 }

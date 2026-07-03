@@ -95,14 +95,21 @@ describe("swagger password gate", () => {
     const payload = (await waitForNotify()) as Record<string, unknown>;
     expect(payload.event).toBe("swagger_auth_success");
     expect(payload.ip).toBe("203.0.113.1");
-    expect(payload.country).toBe("US");
+    expect(payload.country).toBe("United States (US)");
+    expect(payload.security).toEqual({
+      vpn: false,
+      proxy: false,
+      hosting: false,
+      tor: false,
+      label: "Could not verify",
+    });
     expect(payload.userAgent).toBe("SwaggerGateTest/1.0");
     expect(payload.referer).toBe("http://localhost:3000/swagger");
     expect(payload.host).toBe("localhost:3000");
     expect(typeof payload.timestamp).toBe("string");
     expect(typeof payload.content).toBe("string");
     expect(payload.content).toContain("203.0.113.1");
-    expect(payload.content).toContain("Country: US");
+    expect(payload.content).toContain("Country: United States (US)");
   });
 
   test("POST /api/swagger-auth reports Local country for loopback IP", async () => {

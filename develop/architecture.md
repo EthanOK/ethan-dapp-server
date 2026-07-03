@@ -153,7 +153,7 @@ ethan-dapp-server/
 - Serves `/api/openapi.json` with dynamic `servers[0].url` from `requestOrigin()` (reads `X-Forwarded-Proto` / `Host` for Render HTTPS).
 - Serves Swagger from `src/server/static/` (always, dev and prod).
 - Optional Swagger password gate when `SWAGGER_PASSWORD` is set (`POST /api/swagger-auth`, HttpOnly cookie).
-- On successful Swagger login, optional server-side notify to `SWAGGER_AUTH_NOTIFY_URL` (IP, country, User-Agent; fire-and-forget).
+- On successful Swagger login, optional server-side notify to `SWAGGER_AUTH_NOTIFY_URL` (IP, geo, IP type, ISP; fire-and-forget).
 - Serves SPA static files from `public/` in production.
 
 ### `src/server/routes/*.ts` — API modules
@@ -174,7 +174,7 @@ Adding an API = new file + one line in `routes/index.ts`. See [add-api.md](./add
 | `auth-middleware.ts` | `requireAuth` — reads `Authorization` header (Bearer optional) |
 | `demo-login.ts` | Process-local random wallet; builds valid SIWE payload for Swagger Try it out |
 | `request-client.ts` | Client IP (`X-Forwarded-For` → Bun `requestIP`) and request metadata |
-| `ip-country.ts` | Country from proxy headers (`CF-IPCountry`, etc.) or IP lookup (`ipwho.is`) |
+| `ip-country.ts` | Country (full name), city/region, VPN/datacenter hints via `ipwho.is` + heuristics |
 | `swagger-auth-notify.ts` | Server-side Swagger login webhook notify |
 | `swagger-gate.ts` | Optional `/swagger` password gate; HMAC-signed `swagger_access` cookie (24h) |
 | `webhook-forward.ts` | Internal JSON POST helper for notify |
@@ -240,9 +240,14 @@ Payload fields include:
 | Field | Source |
 | --- | --- |
 | `ip` | `X-Forwarded-For` / `X-Real-IP` / Bun `server.requestIP()` |
-| `country` | `CF-IPCountry` (etc.) → `Local` for loopback/private IPs → `ipwho.is` lookup |
+| `country` | `CF-IPCountry` (etc.) → full name e.g. `Singapore (SG)`; `Local` for loopback |
+| `region`, `city`, `location` | `ipwho.is` geolocation (city + region summary line) |
+| `connectionOrg` | ISP / org from `ipwho.is` (e.g. `FDCservers.net`) |
+| `security` | VPN/proxy/hosting/Tor flags + plain `label` (e.g. `Likely VPN or server IP (datacenter, not home broadband)`) |
 | `userAgent`, `referer`, `host`, `timestamp` | Request headers |
-| `content` | Human-readable summary (e.g. for Discord webhooks) |
+| `content` | Human-readable summary for Discord etc. (`IP type:` line replaces opaque risk codes) |
+
+IP geolocation reflects the **exit IP** (VPN/datacenter shows the node location, not the user's true address).
 
 | Env | Default | Role |
 | --- | --- | --- |

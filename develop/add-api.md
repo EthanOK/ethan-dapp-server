@@ -130,7 +130,7 @@ const patches: OpenApiPatch[] = [patchLoginOpenApiExample, patchYourOpenApiExamp
 | `src/server/lib/swagger-gate.ts` | Cookie-based Swagger auth when `SWAGGER_PASSWORD` is set |
 | `src/server/lib/swagger-auth-notify.ts` | Server-side login notify to `SWAGGER_AUTH_NOTIFY_URL` |
 | `src/server/lib/request-client.ts` | Client IP and request metadata |
-| `src/server/lib/ip-country.ts` | Country resolution for login notify |
+| `src/server/lib/ip-country.ts` | Country, city/region, VPN/datacenter hints for login notify |
 
 ## Conventions
 
