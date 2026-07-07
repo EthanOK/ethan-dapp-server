@@ -7,6 +7,17 @@ import {
 import { requestClientInfo } from "./request-client";
 import { forwardWebhookPayload } from "./webhook-forward";
 
+function isLocalhostRequest(c: Context): boolean {
+  const url = new URL(c.req.url);
+  const host =
+    c.req.header("x-forwarded-host")?.split(",")[0]?.trim() ??
+    c.req.header("host") ??
+    url.host;
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
 async function buildSwaggerAuthNotifyPayload(c: Context) {
   const client = requestClientInfo(c);
   const geo = await resolveClientGeo(c, client.ip);
@@ -54,6 +65,8 @@ function formatNotifyFailure(
 
 /** Server-side only: called from POST /api/swagger-auth after password OK. */
 export async function notifySwaggerAuthSuccess(c: Context): Promise<void> {
+  if (isLocalhostRequest(c)) return;
+
   const target = swaggerAuthNotifyUrl();
   if (!target) return;
 
