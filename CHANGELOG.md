@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](https://github.com/EthanOK/ethan-yungou-server/compare/v0.1.1...v0.1.2) (2026-07-07)
+
+
+### Features
+
+* **api:** add version endpoint and skip local swagger auth webhooks ([c8d74c4](https://github.com/EthanOK/ethan-yungou-server/commit/c8d74c4ee596b810153156001b2acf86f6e67217))
+
 ### 0.1.1 (2026-07-07)
 
 
