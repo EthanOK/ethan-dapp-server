@@ -26,9 +26,11 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 | `JWT_EXPIRES` | No | Default `7d` |
 | `SWAGGER_PASSWORD` | No | When set, `/swagger` requires a password; `/api/*` stays public |
 | `SWAGGER_AUTH_NOTIFY_URL` | No | Server-side webhook on successful Swagger login (IP, geo, IP type, ISP) |
-| `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | No | Notify timeout (default `5000`) |
+| `TIMEOUT_MS` | No | Shared outbound timeout in ms (default `5000`) |
 | `WEBHOOK_<DEST>_URL` | For relay | Per-destination target, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
-| `WEBHOOK_FORWARD_TIMEOUT_MS` | No | Forward request timeout (default `10000`) |
+| `BITGET_API_URL` | For Bitget DEX | Default `https://bopenapi.bgwapi.io` |
+| `BITGET_API_KEY` | For Bitget DEX | Server-side signing |
+| `BITGET_API_SECRET` | For Bitget DEX | Server-side signing |
 | `NODE_ENV` | Set by blueprint | `production` |
 
 `PORT` is set automatically by Render — do not override.
@@ -71,7 +73,8 @@ Set `SWAGGER_AUTH_NOTIFY_URL` (e.g. a Discord webhook) to receive a server-side 
 
 - Triggered by the API after `POST /api/swagger-auth` succeeds — **not** called from the browser.
 - Payload includes `ip`, `country` (full name), `region`, `city`, `location`, `connectionOrg`, `security` (VPN/datacenter hint), `userAgent`, `referer`, `host`, `timestamp`, and a `content` summary.
-- `country` / `location`: from `CF-IPCountry` + `ipwho.is` on Render; `Local` for loopback in dev.
+- Local dev (`NODE_ENV=development`): Swagger login from localhost skips notify to avoid noise; production/test still notify.
+- `country` / `location`: from `CF-IPCountry` + `ipwho.is` on Render; `Local` for loopback in tests.
 - `security.label`: plain English e.g. `Likely VPN or server IP (datacenter, not home broadband)` — reflects exit IP type, not proof of malice.
 - Notify is async; login still succeeds if the webhook is slow or unreachable.
 - Local dev: Discord may time out without access to `discord.com` — omit the env var locally or use a reachable webhook.

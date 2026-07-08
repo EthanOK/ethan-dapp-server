@@ -252,9 +252,9 @@ IP geolocation reflects the **exit IP** (VPN/datacenter shows the node location,
 | Env | Default | Role |
 | --- | --- | --- |
 | `SWAGGER_AUTH_NOTIFY_URL` | unset | Webhook target URL |
-| `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | `5000` | Notify fetch timeout |
+| `TIMEOUT_MS` | `5000` | Shared outbound timeout (notify, webhooks, DEX proxy, IP lookup) |
 
-Local dev: loopback IPs report `Country: Local`. Discord URLs may time out without access to `discord.com` — login still succeeds; leave `SWAGGER_AUTH_NOTIFY_URL` unset locally if not needed.
+Local dev: loopback Swagger login skips notify when `NODE_ENV=development` (still notifies in test/production). Discord URLs may time out without access to `discord.com` — login still succeeds; leave `SWAGGER_AUTH_NOTIFY_URL` unset locally if not needed.
 
 ## Authentication flow
 
@@ -299,7 +299,38 @@ flowchart LR
 - **Forwarded body**: all fields except `destination`.
 - **Headers**: upstream headers relayed, except hop-by-hop headers and the JWT `Authorization` (not leaked to the target).
 - **Result**: target `2xx` → `200` with `targetStatus`; non-2xx or unreachable → `502`.
-- **Timeout**: `WEBHOOK_FORWARD_TIMEOUT_MS` (default `10000`).
+- **Timeout**: shared `TIMEOUT_MS` (default `5000`).
+
+## DEX aggregator proxies
+
+Transparent signed proxies to external DEX APIs. Credentials stay server-side; clients call local routes only.
+
+```mermaid
+flowchart LR
+  C["POST /api/bitget/dex/aggregator/quote"] --> H[handleDexProxy]
+  H --> S[bitgetPost + HMAC signature]
+  S --> U["Bitget /bgw-pro/swapx/pro/quote"]
+  U --> P[passthroughUpstreamResponse]
+  P --> R["Same status + body + headers"]
+```
+
+| Layer | Path | Role |
+| --- | --- | --- |
+| Shared | `lib/dex/proxy.ts` | Validate body, call provider client, passthrough or 502/503 |
+| Provider | `lib/dex/providers/bitget/` | Config, HMAC client, request/response OpenAPI schemas |
+| Routes | `routes/dex/bitget.ts` | `createRoute` + `registerDexProxyRoute` |
+| Registry | `routes/dex/index.ts` | `registerDexRoutes()` — Bitget today, OKX stub |
+
+**Bitget routes**
+
+| Local | Upstream | Purpose |
+| --- | --- | --- |
+| `POST /api/bitget/dex/aggregator/quote` | `/bgw-pro/swapx/pro/quote` | Quote |
+| `POST /api/bitget/dex/aggregator/swap` | `/bgw-pro/swapx/pro/swap` | Calldata / swap build |
+
+Env: `BITGET_API_URL`, `BITGET_API_KEY`, `BITGET_API_SECRET`.
+
+To add OKX or another provider, see [add-dex-provider.md](./add-dex-provider.md).
 
 ## Static assets
 

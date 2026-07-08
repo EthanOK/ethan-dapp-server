@@ -20,6 +20,8 @@ bun dev
 | http://localhost:3000/api/login        | SIWE wallet login     |
 | http://localhost:3000/api/me           | Current session (JWT) |
 | http://localhost:3000/api/webhooks     | Webhook relay (JWT)   |
+| http://localhost:3000/api/bitget/dex/aggregator/quote | Bitget quote proxy |
+| http://localhost:3000/api/bitget/dex/aggregator/swap  | Bitget swap proxy  |
 
 ## Scripts
 
@@ -44,6 +46,9 @@ Copy `.env.example` to `.env`:
 | `TIMEOUT_MS`     | No              | Shared outbound request timeout in ms (default `5000`; webhooks, Bitget proxy, Swagger notify, IP lookup) |
 | `SWAGGER_AUTH_NOTIFY_URL` | No       | Server-side webhook URL; on successful Swagger login, POST IP, country, city/region, IP type, ISP, User-Agent, etc. (not called from the browser) |
 | `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
+| `BITGET_API_URL` | For Bitget DEX | Bitget API base URL (default `https://bopenapi.bgwapi.io`) |
+| `BITGET_API_KEY` | For Bitget DEX | Bitget API key (server-side only; used to sign upstream requests) |
+| `BITGET_API_SECRET` | For Bitget DEX | Bitget API secret |
 | `PORT`           | No              | Listen port (dev default `3000`, `bun run start` default `3001`; Render sets this) |
 
 ## Architecture
@@ -60,8 +65,12 @@ src/
     ├── static/
     │   ├── swagger.html       # Swagger UI shell (unpkg CDN)
     │   └── swagger-gate.html  # Password gate when SWAGGER_PASSWORD is set
-    ├── routes/      # API modules (incl. /api/me JWT example)
-    └── lib/         # Auth, OpenAPI patches, middleware
+    ├── routes/      # API modules
+    │   └── dex/     # DEX aggregator proxies (Bitget, OKX, …)
+    └── lib/
+        ├── dex/     # Shared DEX proxy (passthrough, errors, OpenAPI helpers)
+        │   └── providers/bitget/   # Bitget signing, schemas
+        └── …          # Auth, OpenAPI patches, middleware
 public/              # Build output (bun run build)
 ```
 
@@ -105,4 +114,5 @@ See the [develop/](./develop/) directory.
 | ------------------------------------------------------ | ----------------------------- |
 | [develop/architecture.md](./develop/architecture.md)   | System architecture           |
 | [develop/add-api.md](./develop/add-api.md)             | How to add a new API endpoint |
+| [develop/add-dex-provider.md](./develop/add-dex-provider.md) | How to add a DEX provider (e.g. OKX) |
 | [develop/deploy-render.md](./develop/deploy-render.md) | Deploy to Render              |
