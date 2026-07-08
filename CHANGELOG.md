@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.3](https://github.com/EthanOK/ethan-dapp-server/compare/v0.1.2...v0.1.3) (2026-07-08)
+
+
+### Features
+
+* **auth:** notify Discord on login and disable /api/webhooks ([75fa78b](https://github.com/EthanOK/ethan-dapp-server/commit/75fa78b2211d28dcf604ca7df7b2246c2b4feffb))
+* **dex:** add Bitget aggregator proxy and extensible provider layout ([2bd7f2b](https://github.com/EthanOK/ethan-dapp-server/commit/2bd7f2b0172531c2271f7c08dbca1c1dced0cf74))
+* **dex:** add OKX quote/swap aggregator proxy ([1bc67e1](https://github.com/EthanOK/ethan-dapp-server/commit/1bc67e1d684480d8d956842a75d7570a4d36b85e))
+
+
+### Bug Fixes
+
+* **dex:** strip content-encoding in passthrough ([21066c4](https://github.com/EthanOK/ethan-dapp-server/commit/21066c4353b5282acfc1fe378901a7e21a389dad))
+
 ### [0.1.2](https://github.com/EthanOK/ethan-dapp-server/compare/v0.1.1...v0.1.2) (2026-07-07)
 
 
