@@ -278,6 +278,7 @@ sequenceDiagram
 
 - **SIWE (EIP-4361)** message format; signature checked with ethers (not the `siwe` verify path at runtime).
 - **JWT** signed with `JWT_SECRET_KEY`; expiry from `JWT_EXPIRES` (default `7d`).
+- On successful login, the server **asynchronously** POSTs the SIWE payload to `WEBHOOK_DISCORD_URL` (skipped on localhost in `NODE_ENV=development`).
 - Protected example: `GET /api/me` uses `requireAuth` — pass `Authorization: Bearer <userToken>`.
 
 ## Webhook relay

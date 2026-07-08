@@ -19,7 +19,7 @@ bun dev
 | http://localhost:3000/api/hello        | Example API           |
 | http://localhost:3000/api/login        | SIWE wallet login     |
 | http://localhost:3000/api/me           | Current session (JWT) |
-| http://localhost:3000/api/webhooks     | Webhook relay (JWT)   |
+| ~~http://localhost:3000/api/webhooks~~ | _(disabled — login notifies Discord server-side)_ |
 | http://localhost:3000/api/bitget/dex/aggregator/quote | Bitget quote proxy |
 | http://localhost:3000/api/bitget/dex/aggregator/swap  | Bitget swap proxy  |
 
@@ -45,7 +45,7 @@ Copy `.env.example` to `.env`:
 | `SWAGGER_PASSWORD` | No            | When set, `/swagger` requires a password; `/api/*` stays public |
 | `TIMEOUT_MS`     | No              | Shared outbound request timeout in ms (default `5000`; webhooks, Bitget proxy, Swagger notify, IP lookup) |
 | `SWAGGER_AUTH_NOTIFY_URL` | No       | Server-side webhook URL; on successful Swagger login, POST IP, country, city/region, IP type, ISP, User-Agent, etc. (not called from the browser) |
-| `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
+| `WEBHOOK_<DEST>_URL` | For login notify | `WEBHOOK_DISCORD_URL` is used by `POST /api/login` (server-side notify) |
 | `BITGET_API_URL` | For Bitget DEX | Bitget API base URL (default `https://bopenapi.bgwapi.io`) |
 | `BITGET_API_KEY` | For Bitget DEX | Bitget API key (server-side only; used to sign upstream requests) |
 | `BITGET_API_SECRET` | For Bitget DEX | Bitget API secret |

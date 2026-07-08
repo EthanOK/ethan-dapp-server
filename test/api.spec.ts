@@ -10,12 +10,17 @@ const origin = "http://localhost:3000";
 // Local target that the "discord" destination should forward to.
 let lastForwarded: unknown = null;
 let lastForwardedHeaders: Headers | null = null;
+let forwardResolve: (() => void) | null = null;
+let expectingForward = false;
 let targetStatusToReturn = 200;
 const forwardTarget = Bun.serve({
   port: 0,
   async fetch(req) {
     lastForwardedHeaders = req.headers;
     lastForwarded = await req.json();
+    if (expectingForward) {
+      forwardResolve?.();
+    }
     return new Response(JSON.stringify({ ok: targetStatusToReturn < 400 }), {
       status: targetStatusToReturn,
       headers: { "content-type": "application/json" },
@@ -135,6 +140,24 @@ async function getUserToken(): Promise<string> {
   return data.userToken as string;
 }
 
+function waitForForward(timeoutMs = 2000): Promise<unknown> {
+  expectingForward = true;
+  lastForwarded = null;
+  forwardResolve = null;
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      expectingForward = false;
+      reject(new Error("Webhook forward timeout"));
+    }, timeoutMs);
+    forwardResolve = () => {
+      clearTimeout(timer);
+      expectingForward = false;
+      resolve(lastForwarded);
+    };
+  });
+}
+
 describe("API availability", () => {
   test("GET /api/health", async () => {
     const res = await fetchApp("/api/health");
@@ -178,6 +201,8 @@ describe("API availability", () => {
 
   test("POST /api/login", async () => {
     const payload = await createDemoLoginPayload(origin);
+    const notifyPromise = waitForForward();
+
     const res = await fetchApp("/api/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -189,6 +214,16 @@ describe("API availability", () => {
     expect(body.code).toBe(200);
     expect(typeof body.data?.userToken).toBe("string");
     expect(body.data.userToken.length).toBeGreaterThan(0);
+
+    const forwarded = (await notifyPromise) as { content: string };
+    const parsed = JSON.parse(forwarded.content) as {
+      siweMessage: { address: string; nonce: string };
+      signature: string;
+    };
+
+    expect(parsed.signature).toBe(payload.signature);
+    expect(parsed.siweMessage.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(parsed.siweMessage.nonce).toBeTruthy();
   });
 
   test("GET /api/me with JWT", async () => {
@@ -227,6 +262,8 @@ describe("API availability", () => {
     expect(html).toContain("/api/openapi.json");
   });
 
+  // /api/webhooks disabled — login notify is server-side only.
+  /*
   test("POST /api/webhooks without token returns 401", async () => {
     const res = await fetchApp("/api/webhooks", {
       method: "POST",
@@ -304,6 +341,7 @@ describe("API availability", () => {
     const body = await res.json();
     expect(body.code).toBe(-400);
   });
+  */
 });
 
 describe("Bitget DEX proxy", () => {

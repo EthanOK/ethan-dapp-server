@@ -144,6 +144,7 @@ const webhookRoute = createRoute({
   },
 });
 
+/** JWT webhook relay — currently not registered; see routes/index.ts */
 export function registerWebhookRoutes(app: OpenAPIHono<AppEnv>) {
   app.use("/api/webhooks", requireAuth);
   app.openapi(webhookRoute, async (c) => {

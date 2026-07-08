@@ -7,7 +7,7 @@ import { registerLoginRoutes } from "./login";
 import { registerMeRoutes } from "./me";
 import { registerVersionRoutes } from "./version";
 import { registerDexRoutes } from "./dex";
-import { registerWebhookRoutes } from "./webhooks";
+// import { registerWebhookRoutes } from "./webhooks";
 
 export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
   registerOpenApiSecurity(app);
@@ -16,6 +16,7 @@ export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
   registerHelloRoutes(app);
   registerLoginRoutes(app);
   registerMeRoutes(app);
-  registerWebhookRoutes(app);
+  // Login now notifies Discord server-side; client /api/webhooks relay disabled.
+  // registerWebhookRoutes(app);
   registerDexRoutes(app);
 }

@@ -48,7 +48,7 @@ const loginRoute = createRoute({
   tags: ["Auth"],
   summary: "Wallet login (SIWE)",
   description:
-    "Verify a Sign-In with Ethereum (EIP-4361) message and return JWT userToken. Try it out pre-fills a valid demo payload for the current host; you may edit message and signature.",
+    "Verify a Sign-In with Ethereum (EIP-4361) message and return JWT userToken. On success, the server asynchronously notifies the default Discord webhook (`WEBHOOK_DISCORD_URL`) with the SIWE payload — no client-side webhook call is required. Try it out pre-fills a valid demo payload for the current host; you may edit message and signature.",
   request: {
     body: {
       required: true,
@@ -99,6 +99,8 @@ export function registerLoginRoutes(app: OpenAPIHono<AppEnv>) {
 
     try {
       const userToken = generateToken(session);
+      const { notifyLoginSuccess } = await import("../lib/login-notify");
+      void notifyLoginSuccess(c, body, session);
       return c.json({ code: 200, data: { userToken } }, 200);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed";
