@@ -319,7 +319,7 @@ flowchart LR
 | Shared | `lib/dex/proxy.ts` | Validate body, call provider client, passthrough or 502/503 |
 | Provider | `lib/dex/providers/bitget/` | Config, HMAC client, request/response OpenAPI schemas |
 | Routes | `routes/dex/bitget.ts` | `createRoute` + `registerDexProxyRoute` |
-| Registry | `routes/dex/index.ts` | `registerDexRoutes()` — Bitget today, OKX stub |
+| Registry | `routes/dex/index.ts` | `registerDexRoutes()` — Bitget and OKX quote |
 
 **Bitget routes**
 

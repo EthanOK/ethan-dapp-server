@@ -31,6 +31,10 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 | `BITGET_API_URL` | For Bitget DEX | Default `https://bopenapi.bgwapi.io` |
 | `BITGET_API_KEY` | For Bitget DEX | Server-side signing |
 | `BITGET_API_SECRET` | For Bitget DEX | Server-side signing |
+| `OKX_API_URL` | For OKX DEX | Default `https://web3.okx.com` |
+| `OKX_API_KEY` | For OKX DEX | Server-side signing |
+| `OKX_API_SECRET` | For OKX DEX | Server-side signing |
+| `OKX_API_PASSPHRASE` | For OKX DEX | Server-side signing |
 | `NODE_ENV` | Set by blueprint | `production` |
 
 `PORT` is set automatically by Render — do not override.

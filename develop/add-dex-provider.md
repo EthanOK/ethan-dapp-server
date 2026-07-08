@@ -7,7 +7,7 @@ Current providers:
 | Provider | Local prefix | Upstream |
 | --- | --- | --- |
 | Bitget | `/api/bitget/dex/aggregator/*` | `https://bopenapi.bgwapi.io/bgw-pro/swapx/pro/*` |
-| OKX | `/api/okx/dex/aggregator/*` | _(stub — not implemented)_ |
+| OKX | `/api/okx/dex/aggregator/*` | `https://web3.okx.com/api/v6/dex/aggregator/*` |
 
 ## Layout
 
@@ -48,7 +48,7 @@ export function okxCredentials(): { apiKey: string; apiSecret: string; passphras
 }
 ```
 
-`client.ts`: implement `okxPost(apiPath, payload)` using the provider’s auth scheme. Throw `DexProviderNotConfiguredError("OKX")` when credentials are missing.
+`client.ts`: implement `okxGet(apiPath, queryParams)` using OKX HMAC SHA256 signing (`timestamp + method + requestPath + body`). Throw `DexProviderNotConfiguredError("OKX")` when credentials are missing.
 
 ### 2. OpenAPI schemas
 
@@ -62,11 +62,11 @@ Use `.passthrough()` on request bodies so unknown upstream fields are forwarded.
 `src/server/routes/dex/okx.ts`:
 
 ```ts
-registerDexProxyRoute(app, okxQuoteRoute, {
+registerDexGetProxyRoute(app, okxQuoteRoute, {
   provider: "OKX",
   upstreamPath: OKX_UPSTREAM_PATHS.quote,
-  bodySchema: OkxQuoteBodySchema,
-  post: okxPost,
+  querySchema: OkxQuoteQuerySchema,
+  get: okxGet,
 });
 ```
 

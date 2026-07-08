@@ -57,6 +57,53 @@ process.env.BITGET_API_URL = `http://localhost:${bitgetTarget.port}`;
 process.env.BITGET_API_KEY = "test-api-key";
 process.env.BITGET_API_SECRET = "test-api-secret";
 
+type OkxCapturedRequest = {
+  headers: Headers;
+  path: string;
+  search: string;
+};
+
+let lastOkxRequest: OkxCapturedRequest | null = null;
+let okxStatusToReturn = 200;
+let okxBodyToReturn: unknown = {
+  code: "0",
+  data: [
+    {
+      chainIndex: "1",
+      dexRouterList: [],
+      fromTokenAmount: "10000000000000000000",
+      toTokenAmount: "41910433",
+      fromToken: {
+        tokenContractAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        tokenSymbol: "ETH",
+        decimal: "18",
+      },
+      toToken: {
+        tokenContractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        tokenSymbol: "USDC",
+        decimal: "6",
+      },
+    },
+  ],
+  msg: "",
+};
+const okxTarget = Bun.serve({
+  port: 0,
+  async fetch(req) {
+    const url = new URL(req.url);
+    lastOkxRequest = {
+      path: url.pathname,
+      search: url.search,
+      headers: req.headers,
+    };
+    return Response.json(okxBodyToReturn, { status: okxStatusToReturn });
+  },
+});
+process.env.OKX_API_URL = `http://localhost:${okxTarget.port}`;
+process.env.OKX_API_KEY = "test-okx-key";
+process.env.OKX_API_SECRET = "22582BD0CFF14C41EDBF1AB98506286D";
+process.env.OKX_API_PASSPHRASE = "test-passphrase";
+
 let app: Awaited<typeof import("../src/server/server")>["app"];
 
 beforeAll(async () => {
@@ -66,6 +113,7 @@ beforeAll(async () => {
 afterAll(() => {
   forwardTarget.stop(true);
   bitgetTarget.stop(true);
+  okxTarget.stop(true);
 });
 
 async function fetchApp(path: string, init?: RequestInit): Promise<Response> {
@@ -404,6 +452,249 @@ describe("Bitget DEX proxy", () => {
     } finally {
       process.env.BITGET_API_KEY = savedKey;
       process.env.BITGET_API_SECRET = savedSecret;
+    }
+  });
+});
+
+describe("OKX DEX proxy", () => {
+  test("GET /api/okx/dex/aggregator/quote forwards signed request", async () => {
+    lastOkxRequest = null;
+    okxStatusToReturn = 200;
+    okxBodyToReturn = {
+      code: "0",
+      data: [
+        {
+          chainIndex: "1",
+          dexRouterList: [],
+          fromTokenAmount: "10000000000000000000",
+          toTokenAmount: "41910433",
+          fromToken: {
+            tokenContractAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            tokenSymbol: "ETH",
+            decimal: "18",
+          },
+          toToken: {
+            tokenContractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            tokenSymbol: "USDC",
+            decimal: "6",
+          },
+        },
+      ],
+      msg: "",
+    };
+
+    const query = new URLSearchParams({
+      chainIndex: "1",
+      amount: "10000000000000000000",
+      fromTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      toTokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      swapMode: "exactIn",
+    });
+
+    const res = await fetchApp(`/api/okx/dex/aggregator/quote?${query}`);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual(okxBodyToReturn);
+
+    expect(lastOkxRequest).not.toBeNull();
+    const captured = lastOkxRequest!;
+    expect(captured.path).toBe("/api/v6/dex/aggregator/quote");
+    expect(captured.search).toContain("chainIndex=1");
+    expect(captured.search).toContain("amount=10000000000000000000");
+    expect(captured.headers.get("OK-ACCESS-KEY")).toBe("test-okx-key");
+    expect(captured.headers.get("OK-ACCESS-PASSPHRASE")).toBe("test-passphrase");
+    expect(captured.headers.get("OK-ACCESS-TIMESTAMP")).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
+    expect(captured.headers.get("OK-ACCESS-SIGN")).toBeTruthy();
+  });
+
+  test("GET /api/okx/dex/aggregator/swap forwards signed request", async () => {
+    lastOkxRequest = null;
+    okxStatusToReturn = 200;
+    okxBodyToReturn = {
+      code: "0",
+      data: [
+        {
+          routerResult: {
+            chainIndex: "1",
+            dexRouterList: [],
+            fromTokenAmount: "100000000",
+            toTokenAmount: "90281915",
+            fromToken: {
+              tokenContractAddress:
+                "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+              tokenSymbol: "USDC",
+              decimal: "6",
+            },
+            toToken: {
+              tokenContractAddress:
+                "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+              tokenSymbol: "WBTC",
+              decimal: "8",
+            },
+            swapMode: "exactIn",
+            estimateGasFee: "1248837",
+            priceImpactPercent: "0.07",
+            router:
+              "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48--0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+          },
+          tx: {
+            data: "0xabc",
+            from: "0x77660f108043c9e300b4e30a35a61dd19f5ae28a",
+            to: "0x5E1f62Dac767b0491e3CE72469C217365D5B48cC",
+            value: "0",
+            gas: "1248837",
+            gasPrice: "557703374",
+            maxPriorityFeePerGas: "500000000",
+            minReceiveAmount: "90191633",
+            signatureData: [
+              "{\"approveContract\":\"0x40aA958dd87FC8305b97f2BA922CDdCa374bcD7f\",\"approveTxCalldata\":\"0x095ea7b3...\"}",
+            ],
+            slippagePercent: "0.1",
+          },
+        },
+      ],
+      msg: "",
+    };
+
+    const query = new URLSearchParams({
+      chainIndex: "1",
+      amount: "100000000000",
+      fromTokenAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      toTokenAddress: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      approveAmount: "10000000",
+      approveTransaction: "true",
+      slippagePercent: "0.1",
+      userWalletAddress: "0x77660f108043c9e300b4e30a35a61dd19f5ae28a",
+    });
+
+    const res = await fetchApp(`/api/okx/dex/aggregator/swap?${query}`);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual(okxBodyToReturn);
+
+    expect(lastOkxRequest).not.toBeNull();
+    const captured = lastOkxRequest!;
+    expect(captured.path).toBe("/api/v6/dex/aggregator/swap");
+    expect(captured.search).toContain("chainIndex=1");
+    expect(captured.search).toContain("slippagePercent=0.1");
+    expect(captured.search).toContain("approveTransaction=true");
+    expect(captured.headers.get("OK-ACCESS-KEY")).toBe("test-okx-key");
+    expect(captured.headers.get("OK-ACCESS-PASSPHRASE")).toBe("test-passphrase");
+    expect(captured.headers.get("OK-ACCESS-TIMESTAMP")).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
+    expect(captured.headers.get("OK-ACCESS-SIGN")).toBeTruthy();
+  });
+
+  test("GET /api/okx/dex/aggregator/quote passthrough upstream status and body", async () => {
+    okxStatusToReturn = 403;
+    okxBodyToReturn = { code: "50113", msg: "Invalid sign" };
+
+    try {
+      const query = new URLSearchParams({
+        chainIndex: "1",
+        amount: "1",
+        fromTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        toTokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      });
+      const res = await fetchApp(`/api/okx/dex/aggregator/quote?${query}`);
+
+      expect(res.status).toBe(403);
+      await expect(res.json()).resolves.toEqual(okxBodyToReturn);
+    } finally {
+      okxStatusToReturn = 200;
+      okxBodyToReturn = {
+        code: "0",
+        data: [],
+        msg: "",
+      };
+    }
+  });
+
+  test("GET /api/okx/dex/aggregator/swap passthrough upstream status and body", async () => {
+    okxStatusToReturn = 403;
+    okxBodyToReturn = { code: "50113", msg: "Invalid sign" };
+
+    try {
+      const query = new URLSearchParams({
+        chainIndex: "1",
+        amount: "1",
+        fromTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        toTokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        slippagePercent: "0.5",
+        userWalletAddress: "0x77660f108043c9e300b4e30a35a61dd19f5ae28a",
+      });
+      const res = await fetchApp(`/api/okx/dex/aggregator/swap?${query}`);
+
+      expect(res.status).toBe(403);
+      await expect(res.json()).resolves.toEqual(okxBodyToReturn);
+    } finally {
+      okxStatusToReturn = 200;
+      okxBodyToReturn = {
+        code: "0",
+        data: [],
+        msg: "",
+      };
+    }
+  });
+
+  test("GET /api/okx/dex/aggregator/quote returns 503 without credentials", async () => {
+    const savedKey = process.env.OKX_API_KEY;
+    const savedSecret = process.env.OKX_API_SECRET;
+    const savedPassphrase = process.env.OKX_API_PASSPHRASE;
+    delete process.env.OKX_API_KEY;
+    delete process.env.OKX_API_SECRET;
+    delete process.env.OKX_API_PASSPHRASE;
+
+    try {
+      const query = new URLSearchParams({
+        chainIndex: "1",
+        amount: "1",
+        fromTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        toTokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      });
+      const res = await fetchApp(`/api/okx/dex/aggregator/quote?${query}`);
+
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe(-503);
+    } finally {
+      process.env.OKX_API_KEY = savedKey;
+      process.env.OKX_API_SECRET = savedSecret;
+      process.env.OKX_API_PASSPHRASE = savedPassphrase;
+    }
+  });
+
+  test("GET /api/okx/dex/aggregator/swap returns 503 without credentials", async () => {
+    const savedKey = process.env.OKX_API_KEY;
+    const savedSecret = process.env.OKX_API_SECRET;
+    const savedPassphrase = process.env.OKX_API_PASSPHRASE;
+    delete process.env.OKX_API_KEY;
+    delete process.env.OKX_API_SECRET;
+    delete process.env.OKX_API_PASSPHRASE;
+
+    try {
+      const query = new URLSearchParams({
+        chainIndex: "1",
+        amount: "1",
+        fromTokenAddress: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        toTokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        slippagePercent: "0.5",
+        userWalletAddress: "0x77660f108043c9e300b4e30a35a61dd19f5ae28a",
+      });
+      const res = await fetchApp(`/api/okx/dex/aggregator/swap?${query}`);
+
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe(-503);
+    } finally {
+      process.env.OKX_API_KEY = savedKey;
+      process.env.OKX_API_SECRET = savedSecret;
+      process.env.OKX_API_PASSPHRASE = savedPassphrase;
     }
   });
 });
