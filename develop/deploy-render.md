@@ -26,8 +26,8 @@ Ensure the repo contains `bun.lock` (or set `BUN_VERSION` / `.bun-version`).
 | `JWT_EXPIRES` | No | Default `7d` |
 | `SWAGGER_PASSWORD` | No | When set, `/swagger` requires a password; `/api/*` stays public |
 | `SWAGGER_AUTH_NOTIFY_URL` | No | Server-side webhook on successful Swagger login (IP, geo, IP type, ISP) |
+| `WEBHOOK_DISCORD_URL` | For login notify | Server-side Discord alert on successful `POST /api/login` |
 | `TIMEOUT_MS` | No | Shared outbound timeout in ms (default `5000`) |
-| `WEBHOOK_<DEST>_URL` | For relay | Per-destination target, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
 | `BITGET_API_URL` | For Bitget DEX | Default `https://bopenapi.bgwapi.io` |
 | `BITGET_API_KEY` | For Bitget DEX | Server-side signing |
 | `BITGET_API_SECRET` | For Bitget DEX | Server-side signing |
@@ -82,6 +82,27 @@ Set `SWAGGER_AUTH_NOTIFY_URL` (e.g. a Discord webhook) to receive a server-side 
 - `security.label`: plain English e.g. `Likely VPN or server IP (datacenter, not home broadband)` — reflects exit IP type, not proof of malice.
 - Notify is async; login still succeeds if the webhook is slow or unreachable.
 - Local dev: Discord may time out without access to `discord.com` — omit the env var locally or use a reachable webhook.
+
+## Wallet login notify
+
+Set `WEBHOOK_DISCORD_URL` (Discord webhook URL) to receive a server-side alert when a user completes SIWE login.
+
+- Triggered by the API after `POST /api/login` succeeds — **not** called from the browser.
+- Payload: `{ content: JSON.stringify({ siweMessage, signature }) }` (same shape the old client relay used).
+- Notify is async; login still returns `userToken` if Discord is slow, rate-limited (429), or unreachable.
+- Local dev (`NODE_ENV=development` + localhost): skipped to avoid noise.
+
+## API logs (Render)
+
+The service logs API errors to **stdout** (visible under **Dashboard → Logs**):
+
+```text
+[api] GET /api/okx/dex/aggregator/quote?... -> 429
+[dex] OKX /api/v6/dex/aggregator/quote: timed out after 5000ms
+Login notify failed: HTTP 429
+```
+
+Search for `[api]`, `[dex]`, or `notify failed` when debugging production issues.
 
 ## Login in Swagger
 

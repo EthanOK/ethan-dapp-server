@@ -119,18 +119,22 @@ ethan-dapp-server/
 │       │   ├── hello.ts
 │       │   ├── login.ts
 │       │   ├── me.ts
-│       │   └── webhooks.ts
+│       │   ├── dex/          # Bitget + OKX aggregator proxies
+│       │   └── webhooks.ts   # (implementation kept; route not registered)
 │       └── lib/
 │           ├── auth.ts
 │           ├── auth-middleware.ts
 │           ├── demo-login.ts
 │           ├── ip-country.ts
+│           ├── login-notify.ts
+│           ├── request-log.ts
 │           ├── openapi-patches.ts
 │           ├── openapi-security.ts
 │           ├── request-client.ts
 │           ├── swagger-auth-notify.ts
 │           ├── swagger-gate.ts
-│           └── webhook-forward.ts
+│           ├── webhook-forward.ts
+│           └── dex/            # proxy, passthrough, providers/bitget, providers/okx
 ├── public/                   # Created by bun run build
 ├── render.yaml
 └── develop/
@@ -149,7 +153,8 @@ ethan-dapp-server/
 
 - Instantiates `OpenAPIHono` with a global validation hook (400 on Zod failure).
 - Calls `registerAllRoutes(app)` from `routes/index.ts`.
-- Applies CORS on `/api/*`.
+- Applies CORS and `logApiErrors` on `/api/*` (logs responses with status ≥ 400).
+- Registers `app.onError` — uncaught handler errors log to stderr and return 500.
 - Serves `/api/openapi.json` with dynamic `servers[0].url` from `requestOrigin()` (reads `X-Forwarded-Proto` / `Host` for Render HTTPS).
 - Serves Swagger from `src/server/static/` (always, dev and prod).
 - Optional Swagger password gate when `SWAGGER_PASSWORD` is set (`POST /api/swagger-auth`, HttpOnly cookie).
@@ -176,6 +181,8 @@ Adding an API = new file + one line in `routes/index.ts`. See [add-api.md](./add
 | `request-client.ts` | Client IP (`X-Forwarded-For` → Bun `requestIP`) and request metadata |
 | `ip-country.ts` | Country (full name), city/region, VPN/datacenter hints via `ipwho.is` + heuristics |
 | `swagger-auth-notify.ts` | Server-side Swagger login webhook notify |
+| `login-notify.ts` | Server-side Discord notify after successful wallet login |
+| `request-log.ts` | `logApiErrors` middleware + `logUnhandledError` for `onError` |
 | `swagger-gate.ts` | Optional `/swagger` password gate; HMAC-signed `swagger_access` cookie (24h) |
 | `webhook-forward.ts` | Internal JSON POST helper for notify |
 
@@ -263,6 +270,7 @@ sequenceDiagram
   participant W as Wallet / Swagger
   participant API as POST /api/login
   participant Auth as auth.ts
+  participant N as login-notify
 
   W->>API: { message, signature }
   API->>Auth: verifySiweLogin(payload)
@@ -270,6 +278,8 @@ sequenceDiagram
   Auth->>Auth: ethers.verifyMessage → recovered address
   alt signature valid
     Auth->>Auth: generateToken({ address, nonce })
+    API->>N: notifyLoginSuccess (async)
+    N-->>D: POST WEBHOOK_DISCORD_URL
     API-->>W: { code: 200, data: { userToken } }
   else invalid
     API-->>W: { code: -444, message } 401
@@ -278,29 +288,42 @@ sequenceDiagram
 
 - **SIWE (EIP-4361)** message format; signature checked with ethers (not the `siwe` verify path at runtime).
 - **JWT** signed with `JWT_SECRET_KEY`; expiry from `JWT_EXPIRES` (default `7d`).
-- On successful login, the server **asynchronously** POSTs the SIWE payload to `WEBHOOK_DISCORD_URL` (skipped on localhost in `NODE_ENV=development`).
+- On successful login, the server **asynchronously** POSTs `{ content: JSON.stringify({ siweMessage, signature }) }` to `WEBHOOK_DISCORD_URL` (skipped on localhost when `NODE_ENV=development`). Notify failure does not block login.
 - Protected example: `GET /api/me` uses `requireAuth` — pass `Authorization: Bearer <userToken>`.
 
-## Webhook relay
+## Login notify (Discord)
 
-`POST /api/webhooks` (JWT-protected) routes an inbound payload by its `destination` field to a per-destination target URL.
+Server-side only — the browser does **not** call a webhook relay after login.
 
-```mermaid
-flowchart LR
-  C["POST /api/webhooks<br/>{ destination, ...payload }"] --> A[requireAuth JWT]
-  A --> R["webhookTargetFor(destination)<br/>WEBHOOK_&lt;DEST&gt;_URL"]
-  R -->|missing| E400[400 unknown destination]
-  R -->|found| F["fetch target<br/>(strip destination, relay headers)"]
-  F -->|2xx| OK["200 { forwarded, targetStatus }"]
-  F -->|non-2xx| E502["502 { targetStatus }"]
-  F -->|error/timeout| E502b[502 message]
+| Env | Role |
+| --- | --- |
+| `WEBHOOK_DISCORD_URL` | Discord webhook target |
+| `TIMEOUT_MS` | Outbound timeout (default `5000`) |
+
+Failures log `Login notify failed: …` via `console.warn`. Local dev (`NODE_ENV=development` + localhost) skips notify.
+
+## Webhook relay (disabled)
+
+`POST /api/webhooks` (JWT-protected client relay) is **not registered** in `routes/index.ts`. Login alerts use `login-notify.ts` instead. The `webhooks.ts` module remains in the repo for reference.
+
+## Observability (API logs)
+
+All `/api/*` responses with HTTP status **≥ 400** emit a line to stdout:
+
+```text
+[api] GET /api/okx/dex/aggregator/quote?... -> 429
 ```
 
-- **Routing**: `destination` resolves to env var `WEBHOOK_<DESTINATION>_URL` (e.g. `discord` → `WEBHOOK_DISCORD_URL`); adding a destination needs only a new env var.
-- **Forwarded body**: all fields except `destination`.
-- **Headers**: upstream headers relayed, except hop-by-hop headers and the JWT `Authorization` (not leaked to the target).
-- **Result**: target `2xx` → `200` with `targetStatus`; non-2xx or unreachable → `502`.
-- **Timeout**: shared `TIMEOUT_MS` (default `5000`).
+Additional logs:
+
+| Prefix | When |
+| --- | --- |
+| `[dex]` | DEX upstream unreachable, timeout, or missing credentials (502/503) |
+| `[api] … unhandled:` | Uncaught exception in a handler (`onError`) |
+| `Login notify failed:` | Discord webhook failed after wallet login |
+| `Swagger auth notify failed:` | Swagger login webhook failed |
+
+On Render, view **Dashboard → Logs**. Upstream **passthrough** errors (e.g. OKX returns 429 with body) appear as `[api] … -> 429` because the proxy returns the upstream status. Business errors in a `200` response body (e.g. OKX `code !== "0"`) are **not** logged today.
 
 ## DEX aggregator proxies
 
@@ -317,10 +340,12 @@ flowchart LR
 
 | Layer | Path | Role |
 | --- | --- | --- |
-| Shared | `lib/dex/proxy.ts` | Validate body, call provider client, passthrough or 502/503 |
-| Provider | `lib/dex/providers/bitget/` | Config, HMAC client, request/response OpenAPI schemas |
-| Routes | `routes/dex/bitget.ts` | `createRoute` + `registerDexProxyRoute` |
-| Registry | `routes/dex/index.ts` | `registerDexRoutes()` — Bitget and OKX quote |
+| Shared | `lib/dex/proxy.ts` | `handleDexProxy` (POST), `handleDexGetProxy` (GET), passthrough or 502/503 + `[dex]` logs |
+| Shared | `lib/dex/passthrough.ts` | Relay upstream body/status/headers; strips `content-encoding` (avoids browser decode errors) |
+| Provider | `lib/dex/providers/bitget/` | Config, HMAC POST client, OpenAPI schemas |
+| Provider | `lib/dex/providers/okx/` | Config, HMAC GET client, OpenAPI schemas |
+| Routes | `routes/dex/bitget.ts`, `okx.ts` | `registerDexProxyRoute` / `registerDexGetProxyRoute` |
+| Registry | `routes/dex/index.ts` | `registerDexRoutes()` — Bitget + OKX quote/swap |
 
 **Bitget routes**
 
@@ -331,7 +356,16 @@ flowchart LR
 
 Env: `BITGET_API_URL`, `BITGET_API_KEY`, `BITGET_API_SECRET`.
 
-To add OKX or another provider, see [add-dex-provider.md](./add-dex-provider.md).
+**OKX routes**
+
+| Local | Upstream | Purpose |
+| --- | --- | --- |
+| `GET /api/okx/dex/aggregator/quote` | `/api/v6/dex/aggregator/quote` | Quote |
+| `GET /api/okx/dex/aggregator/swap` | `/api/v6/dex/aggregator/swap` | Swap calldata |
+
+Env: `OKX_API_URL`, `OKX_API_KEY`, `OKX_API_SECRET`, `OKX_API_PASSPHRASE`.
+
+To add another provider, see [add-dex-provider.md](./add-dex-provider.md).
 
 ## Static assets
 
@@ -377,6 +411,9 @@ See [deploy-render.md](./deploy-render.md) for setup steps.
 | Swagger from `src/server/static/` | Docs shell stays in source tree; no copy step in build |
 | Optional `SWAGGER_PASSWORD` gate | Protects Swagger UI HTML only; API and OpenAPI JSON remain public for clients |
 | Server-side Swagger login notify | Audit/alert on docs access without exposing webhook URL to the browser |
+| Server-side wallet login notify | Discord alert on SIWE login without client `/api/webhooks` relay |
+| `logApiErrors` + `onError` | Production-visible stdout logs on Render for 4xx/5xx and uncaught errors |
+| Strip `content-encoding` on DEX passthrough | Prevents `net::ERR_CONTENT_DECODING_FAILED` when fetch auto-decompresses |
 | `requestOrigin()` helper | Correct OpenAPI base URL behind Render TLS termination |
 | Single service on Render | API + Swagger + SPA in one Web Service; simpler ops and cost |
 

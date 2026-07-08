@@ -13,6 +13,7 @@ import {
   verifySwaggerPassword,
 } from "./lib/swagger-gate";
 import { notifySwaggerAuthSuccess } from "./lib/swagger-auth-notify";
+import { logApiErrors, logUnhandledError } from "./lib/request-log";
 import { registerAllRoutes } from "./routes";
 
 const root = join(import.meta.dir, "../..");
@@ -48,8 +49,14 @@ export const app = new OpenAPIHono<AppEnv>({
 });
 
 app.use("/api/*", cors());
+app.use("/api/*", logApiErrors);
 
 registerAllRoutes(app);
+
+app.onError((err, c) => {
+  logUnhandledError(err, c);
+  return c.json({ code: 500, message: "Internal Server Error" }, 500);
+});
 
 app.get("/api/openapi.json", async (c) => {
   const origin = requestOrigin(c);

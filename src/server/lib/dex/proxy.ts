@@ -51,6 +51,9 @@ export async function handleDexProxy(
     return passthroughUpstreamResponse(upstream);
   } catch (err) {
     if (err instanceof DexProviderNotConfiguredError) {
+      console.warn(
+        `[dex] ${options.provider} ${options.upstreamPath}: credentials not configured`,
+      );
       return c.json({ code: -503 as const, message: err.message }, 503);
     }
 
@@ -58,6 +61,9 @@ export async function handleDexProxy(
       err instanceof Error
         ? err.message
         : `Failed to reach ${options.provider} API`;
+    console.warn(
+      `[dex] ${options.provider} ${options.upstreamPath}: ${message}`,
+    );
     return c.json({ code: 502 as const, message }, 502);
   }
 }
@@ -79,6 +85,9 @@ export async function handleDexGetProxy(
     return passthroughUpstreamResponse(upstream);
   } catch (err) {
     if (err instanceof DexProviderNotConfiguredError) {
+      console.warn(
+        `[dex] ${options.provider} ${options.upstreamPath}: credentials not configured`,
+      );
       return c.json({ code: -503 as const, message: err.message }, 503);
     }
 
@@ -86,6 +95,9 @@ export async function handleDexGetProxy(
       err instanceof Error
         ? err.message
         : `Failed to reach ${options.provider} API`;
+    console.warn(
+      `[dex] ${options.provider} ${options.upstreamPath}: ${message}`,
+    );
     return c.json({ code: 502 as const, message }, 502);
   }
 }

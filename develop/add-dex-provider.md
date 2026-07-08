@@ -14,7 +14,7 @@ Current providers:
 ```
 src/server/
 ├── lib/dex/
-│   ├── proxy.ts              # handleDexProxy, registerDexProxyRoute
+│   ├── proxy.ts              # handleDexProxy (POST), handleDexGetProxy (GET)
 │   ├── passthrough.ts        # passthroughUpstreamResponse
 │   ├── errors.ts             # DexProviderNotConfiguredError
 │   ├── openapi-errors.ts     # createDexServerErrorResponses(provider)
@@ -83,7 +83,7 @@ Add vars to `.env.example` and document in `README.md` / `develop/deploy-render.
 
 ## Conventions
 
-- **Path pattern:** `/api/{provider}/dex/aggregator/{action}` (e.g. `quote`, `swap`).
+- **Path pattern:** `/api/{provider}/dex/aggregator/{action}` (e.g. `quote`, `swap`). OKX uses **GET** with query params; Bitget uses **POST** with JSON body.
 - **Swagger tag:** provider name (`Bitget`, `OKX`).
 - **Timeout:** all outbound calls use shared `TIMEOUT_MS` (default `5000`).
 - **Errors:** `503` when credentials missing; `502` when upstream unreachable; otherwise passthrough upstream status/body.
