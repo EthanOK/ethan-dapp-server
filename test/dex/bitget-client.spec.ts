@@ -23,6 +23,7 @@ describe("passthroughUpstreamResponse", () => {
       status: 403,
       headers: {
         "content-type": "application/json; charset=utf-8",
+        "content-encoding": "gzip",
         "x-trace-id": "abc",
         connection: "keep-alive",
       },
@@ -33,6 +34,7 @@ describe("passthroughUpstreamResponse", () => {
     expect(relayed.headers.get("content-type")).toBe(
       "application/json; charset=utf-8",
     );
+    expect(relayed.headers.get("content-encoding")).toBeNull();
     expect(relayed.headers.get("x-trace-id")).toBe("abc");
     expect(relayed.headers.get("connection")).toBeNull();
     await expect(relayed.json()).resolves.toEqual({

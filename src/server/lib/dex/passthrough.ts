@@ -8,6 +8,10 @@ const PASSTHROUGH_STRIPPED_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
   "content-length",
+  // Bun/undici `fetch()` typically returns a decoded body, but may keep the
+  // upstream Content-Encoding header. If we forward that header as-is, browsers
+  // may attempt to decode again and fail with net::ERR_CONTENT_DECODING_FAILED.
+  "content-encoding",
 ]);
 
 /** Relay upstream response body, status, and headers without modification. */
