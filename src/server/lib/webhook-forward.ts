@@ -1,4 +1,4 @@
-import { WEBHOOK_FORWARD_TIMEOUT_MS } from "../config";
+import { TIMEOUT_MS } from "../config";
 
 export type WebhookForwardResult =
   | { ok: true; status: number }
@@ -7,7 +7,7 @@ export type WebhookForwardResult =
 export async function forwardWebhookPayload(
   target: string,
   payload: Record<string, unknown>,
-  timeoutMs = WEBHOOK_FORWARD_TIMEOUT_MS,
+  timeoutMs = TIMEOUT_MS,
 ): Promise<WebhookForwardResult> {
   try {
     const res = await fetch(target, {

@@ -2,7 +2,7 @@ import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppEnv } from "../lib/app-env";
 import { requireAuth } from "../lib/auth-middleware";
 import { BEARER_SECURITY_SCHEME } from "../lib/openapi-security";
-import { WEBHOOK_FORWARD_TIMEOUT_MS, webhookTargetFor } from "../config";
+import { TIMEOUT_MS, webhookTargetFor } from "../config";
 
 // Headers that must not be relayed: hop-by-hop headers, content-length
 // (recomputed by fetch), and our own JWT Authorization (not meant for the target).
@@ -165,7 +165,7 @@ export function registerWebhookRoutes(app: OpenAPIHono<AppEnv>) {
         method: "POST",
         headers: buildForwardHeaders(c.req.raw.headers),
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(WEBHOOK_FORWARD_TIMEOUT_MS),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
       if (!res.ok) {

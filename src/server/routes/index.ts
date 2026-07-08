@@ -6,6 +6,7 @@ import { registerHelloRoutes } from "./hello";
 import { registerLoginRoutes } from "./login";
 import { registerMeRoutes } from "./me";
 import { registerVersionRoutes } from "./version";
+import { registerDexRoutes } from "./dex";
 import { registerWebhookRoutes } from "./webhooks";
 
 export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
@@ -16,4 +17,5 @@ export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
   registerLoginRoutes(app);
   registerMeRoutes(app);
   registerWebhookRoutes(app);
+  registerDexRoutes(app);
 }

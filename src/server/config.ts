@@ -1,18 +1,12 @@
 export const JWT_SECRET = process.env.JWT_SECRET_KEY ?? "";
 export const JWT_EXPIRES = process.env.JWT_EXPIRES ?? "7d";
 
-export const WEBHOOK_FORWARD_TIMEOUT_MS = Number(
-  process.env.WEBHOOK_FORWARD_TIMEOUT_MS ?? "10000",
-);
+export const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? "5000");
 
 export function swaggerAuthNotifyUrl(): string | null {
   const url = process.env.SWAGGER_AUTH_NOTIFY_URL?.trim();
   return url || null;
 }
-
-export const SWAGGER_AUTH_NOTIFY_TIMEOUT_MS = Number(
-  process.env.SWAGGER_AUTH_NOTIFY_TIMEOUT_MS ?? "5000",
-);
 
 // Resolve a routing destination (e.g. "discord") to its forward URL via the
 // WEBHOOK_<DESTINATION>_URL env var (e.g. WEBHOOK_DISCORD_URL). Read at request

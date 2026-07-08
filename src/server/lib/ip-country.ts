@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { TIMEOUT_MS } from "../config";
 
 const COUNTRY_HEADERS = [
   "cf-ipcountry",
@@ -52,8 +53,6 @@ type IpWhoIsResponse = {
     hosting?: boolean;
   };
 };
-
-const IP_LOOKUP_TIMEOUT_MS = 3000;
 
 export function formatCountryCode(code: string): string {
   const normalized = code.trim().toUpperCase();
@@ -165,7 +164,7 @@ export function inferSecurity(
 async function lookupIpWhoIs(ip: string): Promise<IpWhoIsResponse | null> {
   try {
     const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
-      signal: AbortSignal.timeout(IP_LOOKUP_TIMEOUT_MS),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) return null;
 

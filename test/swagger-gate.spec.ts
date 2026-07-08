@@ -37,6 +37,10 @@ async function fetchApp(path: string, init?: RequestInit): Promise<Response> {
 }
 
 function waitForNotify(timeoutMs = 2000): Promise<unknown> {
+  if (lastNotify !== null) {
+    return Promise.resolve(lastNotify);
+  }
+
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error("Swagger auth notify timeout")),
@@ -79,6 +83,8 @@ describe("swagger password gate", () => {
     lastNotify = null;
     notifyResolve = null;
 
+    const notifyPromise = waitForNotify();
+
     const authRes = await fetchApp("/api/swagger-auth", {
       method: "POST",
       headers: {
@@ -92,7 +98,7 @@ describe("swagger password gate", () => {
     });
     expect(authRes.status).toBe(200);
 
-    const payload = (await waitForNotify()) as Record<string, unknown>;
+    const payload = (await notifyPromise) as Record<string, unknown>;
     expect(payload.event).toBe("swagger_auth_success");
     expect(payload.ip).toBe("203.0.113.1");
     expect(payload.country).toBe("United States (US)");
@@ -116,6 +122,8 @@ describe("swagger password gate", () => {
     lastNotify = null;
     notifyResolve = null;
 
+    const notifyPromise = waitForNotify();
+
     const authRes = await fetchApp("/api/swagger-auth", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -123,7 +131,7 @@ describe("swagger password gate", () => {
     });
     expect(authRes.status).toBe(200);
 
-    const payload = (await waitForNotify()) as Record<string, unknown>;
+    const payload = (await notifyPromise) as Record<string, unknown>;
     expect(payload.country).toBe("Local");
     expect(payload.content).toContain("Country: Local");
   });

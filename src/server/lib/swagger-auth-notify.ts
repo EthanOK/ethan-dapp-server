@@ -1,9 +1,6 @@
 import type { Context } from "hono";
 import { formatLocation, resolveClientGeo } from "./ip-country";
-import {
-  SWAGGER_AUTH_NOTIFY_TIMEOUT_MS,
-  swaggerAuthNotifyUrl,
-} from "../config";
+import { TIMEOUT_MS, swaggerAuthNotifyUrl } from "../config";
 import { requestClientInfo } from "./request-client";
 import { forwardWebhookPayload } from "./webhook-forward";
 
@@ -65,7 +62,8 @@ function formatNotifyFailure(
 
 /** Server-side only: called from POST /api/swagger-auth after password OK. */
 export async function notifySwaggerAuthSuccess(c: Context): Promise<void> {
-  if (isLocalhostRequest(c)) return;
+  // Skip noisy self-notify during local dev; still notify in test/production.
+  if (process.env.NODE_ENV === "development" && isLocalhostRequest(c)) return;
 
   const target = swaggerAuthNotifyUrl();
   if (!target) return;
@@ -73,7 +71,7 @@ export async function notifySwaggerAuthSuccess(c: Context): Promise<void> {
   const result = await forwardWebhookPayload(
     target,
     await buildSwaggerAuthNotifyPayload(c),
-    SWAGGER_AUTH_NOTIFY_TIMEOUT_MS,
+    TIMEOUT_MS,
   );
 
   if (!result.ok) {

@@ -41,10 +41,9 @@ Copy `.env.example` to `.env`:
 | `JWT_SECRET_KEY` | Yes (for login) | Secret for signing JWT `userToken`             |
 | `JWT_EXPIRES`    | No              | JWT expiry (default `7d`)                      |
 | `SWAGGER_PASSWORD` | No            | When set, `/swagger` requires a password; `/api/*` stays public |
+| `TIMEOUT_MS`     | No              | Shared outbound request timeout in ms (default `5000`; webhooks, Bitget proxy, Swagger notify, IP lookup) |
 | `SWAGGER_AUTH_NOTIFY_URL` | No       | Server-side webhook URL; on successful Swagger login, POST IP, country, city/region, IP type, ISP, User-Agent, etc. (not called from the browser) |
-| `SWAGGER_AUTH_NOTIFY_TIMEOUT_MS` | No | Notify request timeout (default `5000`) |
 | `WEBHOOK_<DEST>_URL` | For relay   | Target per `destination`, e.g. `WEBHOOK_DISCORD_URL` for `destination: "discord"` |
-| `WEBHOOK_FORWARD_TIMEOUT_MS` | No  | Forward request timeout (default `10000`)      |
 | `PORT`           | No              | Listen port (dev default `3000`, `bun run start` default `3001`; Render sets this) |
 
 ## Architecture

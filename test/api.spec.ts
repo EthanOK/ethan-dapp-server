@@ -24,6 +24,39 @@ const forwardTarget = Bun.serve({
 });
 process.env.WEBHOOK_DISCORD_URL = `http://localhost:${forwardTarget.port}`;
 
+type BitgetCapturedRequest = {
+  headers: Headers;
+  body: unknown;
+  path: string;
+};
+
+let lastBitgetRequest: BitgetCapturedRequest | null = null;
+let bitgetStatusToReturn = 200;
+let bitgetBodyToReturn: unknown = {
+  status: 0,
+  data: {
+    toAmount: "1.000972",
+    market: "jupiter.router",
+    slippage: "2",
+    estimateRevert: false,
+  },
+};
+const bitgetTarget = Bun.serve({
+  port: 0,
+  async fetch(req) {
+    const url = new URL(req.url);
+    lastBitgetRequest = {
+      path: url.pathname,
+      headers: req.headers,
+      body: await req.json(),
+    };
+    return Response.json(bitgetBodyToReturn, { status: bitgetStatusToReturn });
+  },
+});
+process.env.BITGET_API_URL = `http://localhost:${bitgetTarget.port}`;
+process.env.BITGET_API_KEY = "test-api-key";
+process.env.BITGET_API_SECRET = "test-api-secret";
+
 let app: Awaited<typeof import("../src/server/server")>["app"];
 
 beforeAll(async () => {
@@ -32,6 +65,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   forwardTarget.stop(true);
+  bitgetTarget.stop(true);
 });
 
 async function fetchApp(path: string, init?: RequestInit): Promise<Response> {
@@ -221,5 +255,155 @@ describe("API availability", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe(-400);
+  });
+});
+
+describe("Bitget DEX proxy", () => {
+  test("POST /api/bitget/dex/aggregator/quote forwards signed request", async () => {
+    lastBitgetRequest = null;
+    bitgetStatusToReturn = 200;
+    bitgetBodyToReturn = {
+      status: 0,
+      data: {
+        toAmount: "1.000972",
+        market: "jupiter.router",
+        slippage: "2",
+        estimateRevert: false,
+      },
+    };
+
+    const quoteBody = {
+      fromContract: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      fromAmount: "1",
+      fromChain: "sol",
+      toContract: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      toChain: "sol",
+      estimateGas: true,
+    };
+
+    const res = await fetchApp("/api/bitget/dex/aggregator/quote", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(quoteBody),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual(bitgetBodyToReturn);
+
+    expect(lastBitgetRequest).not.toBeNull();
+    const captured = lastBitgetRequest!;
+    expect(captured.path).toBe("/bgw-pro/swapx/pro/quote");
+    expect(captured.body).toEqual(quoteBody);
+    expect(captured.headers.get("x-api-key")).toBe("test-api-key");
+    expect(captured.headers.get("x-api-timestamp")).toMatch(/^\d+$/);
+    expect(captured.headers.get("x-api-signature")).toBeTruthy();
+  });
+
+  test("POST /api/bitget/dex/aggregator/swap forwards signed request", async () => {
+    lastBitgetRequest = null;
+    bitgetStatusToReturn = 200;
+    bitgetBodyToReturn = {
+      status: 0,
+      data: {
+        id: "fbc288e957b14524b20ebcdd8a7fc740",
+        market: "bgwevmaggregator",
+        contract: "0x6D0034c7DA87e8f0526b21aa890d40A77C755B68",
+        calldata: "0xabc",
+        deadline: 120,
+      },
+      msg: "success",
+    };
+
+    const swapBody = {
+      fromContract: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      fromAmount: "100",
+      fromChain: "eth",
+      toContract: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      toChain: "eth",
+      fromAddress: "0xd8FeBD1C242a282f1b8226d34282942F6F63248b",
+      toAddress: "0xd8FeBD1C242a282f1b8226d34282942F6F63248b",
+      slippage: 1,
+      market: "bgwaggregator",
+      requestMod: "rich",
+    };
+
+    const res = await fetchApp("/api/bitget/dex/aggregator/swap", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(swapBody),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual(bitgetBodyToReturn);
+
+    expect(lastBitgetRequest).not.toBeNull();
+    const captured = lastBitgetRequest!;
+    expect(captured.path).toBe("/bgw-pro/swapx/pro/swap");
+    expect(captured.body).toEqual(swapBody);
+    expect(captured.headers.get("x-api-key")).toBe("test-api-key");
+    expect(captured.headers.get("x-api-signature")).toBeTruthy();
+  });
+
+  test("POST /api/bitget/dex/aggregator/quote passthrough upstream status and body", async () => {
+    bitgetStatusToReturn = 403;
+    bitgetBodyToReturn = { status: 403, msg: "Forbidden" };
+
+    try {
+      const res = await fetchApp("/api/bitget/dex/aggregator/quote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fromContract: "",
+          fromAmount: "1",
+          fromChain: "eth",
+          toContract: "0xabc",
+          toChain: "eth",
+        }),
+      });
+
+      expect(res.status).toBe(403);
+      await expect(res.json()).resolves.toEqual(bitgetBodyToReturn);
+    } finally {
+      bitgetStatusToReturn = 200;
+      bitgetBodyToReturn = {
+        status: 0,
+        data: {
+          toAmount: "1.000972",
+          market: "jupiter.router",
+          slippage: "2",
+          estimateRevert: false,
+        },
+      };
+    }
+  });
+
+  test("POST /api/bitget/dex/aggregator/quote returns 503 without credentials", async () => {
+    const savedKey = process.env.BITGET_API_KEY;
+    const savedSecret = process.env.BITGET_API_SECRET;
+    delete process.env.BITGET_API_KEY;
+    delete process.env.BITGET_API_SECRET;
+
+    try {
+      const res = await fetchApp("/api/bitget/dex/aggregator/quote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fromContract: "",
+          fromAmount: "1",
+          fromChain: "eth",
+          toContract: "0xabc",
+          toChain: "eth",
+        }),
+      });
+
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe(-503);
+    } finally {
+      process.env.BITGET_API_KEY = savedKey;
+      process.env.BITGET_API_SECRET = savedSecret;
+    }
   });
 });
