@@ -1,19 +1,9 @@
 import type { Context } from "hono";
 import { formatLocation, resolveClientGeo } from "./ip-country";
 import { TIMEOUT_MS, swaggerAuthNotifyUrl } from "../config";
+import { isLocalhostRequest } from "./is-localhost";
 import { requestClientInfo } from "./request-client";
 import { forwardWebhookPayload } from "./webhook-forward";
-
-function isLocalhostRequest(c: Context): boolean {
-  const url = new URL(c.req.url);
-  const host =
-    c.req.header("x-forwarded-host")?.split(",")[0]?.trim() ??
-    c.req.header("host") ??
-    url.host;
-  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
-
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
 
 async function buildSwaggerAuthNotifyPayload(c: Context) {
   const client = requestClientInfo(c);

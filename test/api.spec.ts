@@ -199,7 +199,7 @@ describe("API availability", () => {
     expect(doc.servers?.[0]?.url).toBe(origin);
   });
 
-  test("POST /api/login", async () => {
+  test("POST /api/login from localhost SIWE skips Discord notify", async () => {
     const payload = await createDemoLoginPayload(origin);
     const notifyPromise = waitForForward();
 
@@ -215,15 +215,36 @@ describe("API availability", () => {
     expect(typeof body.data?.userToken).toBe("string");
     expect(body.data.userToken.length).toBeGreaterThan(0);
 
+    await expect(notifyPromise).rejects.toThrow("Webhook forward timeout");
+    expect(lastForwarded).toBeNull();
+  });
+
+  test("POST /api/login from production SIWE notifies Discord", async () => {
+    const prodOrigin = "https://ethan-dapp.onrender.com";
+    const payload = await createDemoLoginPayload(prodOrigin);
+    const notifyPromise = waitForForward();
+
+    const res = await fetchApp("/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.code).toBe(200);
+    expect(typeof body.data?.userToken).toBe("string");
+
     const forwarded = (await notifyPromise) as { content: string };
     const parsed = JSON.parse(forwarded.content) as {
-      siweMessage: { address: string; nonce: string };
+      siweMessage: { address: string; nonce: string; domain?: string };
       signature: string;
     };
 
     expect(parsed.signature).toBe(payload.signature);
     expect(parsed.siweMessage.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
     expect(parsed.siweMessage.nonce).toBeTruthy();
+    expect(parsed.siweMessage.domain).toBe("ethan-dapp.onrender.com");
   });
 
   test("GET /api/me with JWT", async () => {

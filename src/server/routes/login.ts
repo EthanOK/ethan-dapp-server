@@ -48,7 +48,7 @@ const loginRoute = createRoute({
   tags: ["Auth"],
   summary: "Wallet login (SIWE)",
   description:
-    "Verify a Sign-In with Ethereum (EIP-4361) message and return JWT userToken. On success, the server asynchronously notifies the default Discord webhook (`WEBHOOK_DISCORD_URL`) with the SIWE payload — no client-side webhook call is required. Try it out pre-fills a valid demo payload for the current host; you may edit message and signature.",
+    "Verify a Sign-In with Ethereum (EIP-4361) message and return JWT userToken. On success, the server asynchronously notifies the default Discord webhook (`WEBHOOK_DISCORD_URL`) with the SIWE payload — no client-side webhook call is required. Notifications are skipped for local development (localhost SIWE domain or Origin/Referer). Try it out pre-fills a valid demo payload for the current host; you may edit message and signature.",
   request: {
     body: {
       required: true,

@@ -1,19 +1,24 @@
 import type { Context } from "hono";
 import { TIMEOUT_MS, webhookTargetFor } from "../config";
 import type { LoginPayload, SessionClaims } from "./auth";
+import {
+  isLocalhostOrigin,
+  isLocalhostRequest,
+  isLocalhostSiweDomain,
+} from "./is-localhost";
 import { forwardWebhookPayload } from "./webhook-forward";
 
 const DEFAULT_LOGIN_NOTIFY_DESTINATION = "discord";
 
-function isLocalhostRequest(c: Context): boolean {
-  const url = new URL(c.req.url);
-  const host =
-    c.req.header("x-forwarded-host")?.split(",")[0]?.trim() ??
-    c.req.header("host") ??
-    url.host;
-  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
-
-  return hostname === "localhost" || hostname === "127.0.0.1";
+function shouldSkipLoginNotify(c: Context, login: LoginPayload): boolean {
+  if (process.env.NODE_ENV === "development" && isLocalhostRequest(c)) {
+    return true;
+  }
+  // Local frontend (e.g. localhost:3000) calling production API — do not spam Discord.
+  if (isLocalhostSiweDomain(login.message) || isLocalhostOrigin(c)) {
+    return true;
+  }
+  return false;
 }
 
 function parseSiweMessageFields(message: string) {
@@ -90,7 +95,7 @@ export async function notifyLoginSuccess(
   login: LoginPayload,
   session: SessionClaims,
 ): Promise<void> {
-  if (process.env.NODE_ENV === "development" && isLocalhostRequest(c)) return;
+  if (shouldSkipLoginNotify(c, login)) return;
 
   const target = webhookTargetFor(DEFAULT_LOGIN_NOTIFY_DESTINATION);
   if (!target) return;
