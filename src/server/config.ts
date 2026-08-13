@@ -15,3 +15,9 @@ export function webhookTargetFor(destination: string): string | null {
   const url = process.env[`WEBHOOK_${destination.toUpperCase()}_URL`];
   return url && url.trim() ? url.trim() : null;
 }
+
+/** EIP-7702 gas-sponsorship relayer key (must hold gas on the target chains). */
+export const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY?.trim() ?? "";
+
+/** Alchemy API key used to build testnet RPC URLs for the relayer. */
+export const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY?.trim() ?? "";

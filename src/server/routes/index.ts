@@ -7,6 +7,7 @@ import { registerLoginRoutes } from "./login";
 import { registerMeRoutes } from "./me";
 import { registerVersionRoutes } from "./version";
 import { registerDexRoutes } from "./dex";
+import { registerRelay7702Routes } from "./relay7702";
 // import { registerWebhookRoutes } from "./webhooks";
 
 export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
@@ -19,4 +20,5 @@ export function registerAllRoutes(app: OpenAPIHono<AppEnv>): void {
   // Login now notifies Discord server-side; client /api/webhooks relay disabled.
   // registerWebhookRoutes(app);
   registerDexRoutes(app);
+  registerRelay7702Routes(app);
 }
