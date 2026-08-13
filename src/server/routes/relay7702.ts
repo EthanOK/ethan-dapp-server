@@ -101,7 +101,15 @@ export function registerRelay7702Routes(app: OpenAPIHono<AppEnv>) {
       const result = await relayEIP7702(body);
       return c.json({ code: 200, data: result }, 200);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Relay failed";
+      // ethers broadcast errors (shortMessage) get a "Relayer:" prefix so the
+      // failure is clearly attributed to the gas sponsor; config/validation
+      // errors keep their own message.
+      const e = err as { shortMessage?: string; message?: string };
+      const message = e?.shortMessage
+        ? `Relayer: ${e.shortMessage}`
+        : err instanceof Error
+          ? err.message
+          : "Relay failed";
       return c.json({ code: 500, message }, 500);
     }
   });
