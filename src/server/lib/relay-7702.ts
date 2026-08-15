@@ -1,5 +1,6 @@
-import { AlchemyProvider, JsonRpcProvider, Wallet } from "ethers";
-import { ALCHEMY_API_KEY, RELAYER_PRIVATE_KEY } from "../config";
+import { Wallet } from "ethers";
+import { RELAYER_PRIVATE_KEY } from "../config";
+import { makeProvider } from "./provider";
 
 export type RelayAuthorization = {
   chainId: number;
@@ -23,36 +24,6 @@ export type RelayResult = {
 
 /** Only testnets are supported: the relayer must never spend mainnet gas. */
 const SUPPORTED_CHAIN_IDS: number[] = [11155111, 560048]; // sepolia, hoodi
-
-/**
- * Provider selection:
- *  - No ALCHEMY_API_KEY → public RPCs below.
- *  - hoodi (560048): ethers' AlchemyProvider has no hoodi entry (checked 6.17
- *    and the latest release), so its Alchemy URL is built manually.
- *  - else (sepolia): let ethers build the Alchemy URL via AlchemyProvider.
- */
-const DEFAULT_RPCS: Record<number, string> = {
-  11155111: "https://0xrpc.io/sep",
-  560048: "https://0xrpc.io/hoodi",
-};
-
-function makeProvider(chainId: number): JsonRpcProvider {
-  if (!ALCHEMY_API_KEY) {
-    const rpc = DEFAULT_RPCS[chainId];
-    if (!rpc) {
-      throw new Error(`No RPC configured for chainId ${chainId}`);
-    }
-    return new JsonRpcProvider(rpc, chainId, { staticNetwork: true });
-  }
-  if (chainId === 560048) {
-    return new JsonRpcProvider(
-      `https://eth-hoodi.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
-      chainId,
-      { staticNetwork: true }
-    );
-  }
-  return new AlchemyProvider(chainId, ALCHEMY_API_KEY);
-}
 
 /**
  * EIP-7702 gas sponsorship: broadcast a type-4 transaction whose sender is the

@@ -247,6 +247,33 @@ describe("API availability", () => {
     expect(parsed.siweMessage.domain).toBe("ethan-dapp.onrender.com");
   });
 
+  test("POST /api/login accepts ERC-6492 smart-account signature", async () => {
+    // Real smart-account (undeployed) signature captured from the Reown
+    // embedded wallet. The backend validates it via @ambire/signature-validator
+    // (one eth_call to the deployless validator) — requires network access.
+    const payload = await Bun.file(
+      "./test/fixtures/siwe-6492-login.json",
+    ).json();
+    const res = await fetchApp("/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.code).toBe(200);
+    expect(typeof body.data?.userToken).toBe("string");
+    // JWT is bound to the smart-account address from the SIWE message.
+    const token = body.data.userToken as string;
+    const claims = JSON.parse(
+      Buffer.from(token.split(".")[1] ?? "", "base64url").toString(),
+    ) as { address?: string };
+    expect(claims.address?.toLowerCase()).toBe(
+      "0x44a0b41d6370887029cfc41efa17ebd931b4c842",
+    );
+  }, 30000);
+
   test("GET /api/me with JWT", async () => {
     const payload = await createDemoLoginPayload(origin);
     const loginRes = await fetchApp("/api/login", {

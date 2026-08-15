@@ -17,6 +17,7 @@
     "release": "bunx standard-version"
   },
   "dependencies": {
+    "@ambire/signature-validator": "^1.5.0",
     "@hono/zod-openapi": "^1.4.0",
     "ethers": "^6.17.0",
     "hono": "^4.12.27",
