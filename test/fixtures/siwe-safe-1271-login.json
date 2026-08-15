@@ -1,0 +1,4 @@
+{
+  "message": "localhost:3000 wants you to sign in with your Ethereum account:\n0x44a0b41d6370887029cfc41EFA17ebd931b4C842\n\nSign in to Ethan DApp\n\nURI: http://localhost:3000\nVersion: 1\nChain ID: 11155111\nNonce: e3ac56f8d1775d975040eded7944a0855ac7e6aa3f7e51fee1f0c92919197bb0\nIssued At: 2026-08-15T09:32:50.811Z",
+  "signature": "0x5dfcb54a01c16ad51122c84e1a4f702b9196c40f6766a470e7caef64f23bb29a5cc067ce110b44b028465d47898533ff38bcdc048d03cc8662ce036e4dde2cd720"
+}
